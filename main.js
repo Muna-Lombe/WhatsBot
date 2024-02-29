@@ -13,6 +13,7 @@ const client = new Client({
   authStrategy: new LocalAuth({ clientId: "whatsbot" }),
 });
 
+
 client.commands = new Map();
 
 fs.readdir("./commands", (err, files) => {
@@ -28,11 +29,14 @@ fs.readdir("./commands", (err, files) => {
 
 client.initialize();
 
+
 client.on("auth_failure", () => {
   console.error(
     "There is a problem in authentication, Kindly set the env var again and restart the app"
   );
 });
+
+// 
 
 client.on("ready", async () => {
   console.log("Bot has been started");

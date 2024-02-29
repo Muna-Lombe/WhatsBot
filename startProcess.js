@@ -9,7 +9,7 @@ async function main() {
       require("./main");
     }, 2000);
   } catch (error) {
-    console.error(error?.message);
+    console.error("something caught:", error?.message);
   }
 }
 main();

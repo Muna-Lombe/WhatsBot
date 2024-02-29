@@ -39,7 +39,7 @@
     "qrcode-svg": "^1.1.0",
     "qrcode-terminal": "^0.12.0",
     "serve-index": "^1.9.1",
-    "urban-dictionary": "^3.0.2",
+    "ud-api": "^3.0.2-2",
     "vcf": "^2.1.1",
     "weather-js": "^2.0.0",
     "whatsapp-web.js": "^1.22.1"

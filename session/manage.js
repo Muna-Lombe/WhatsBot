@@ -52,19 +52,34 @@ module.exports = {
   replicate: async function replicate() {
     try {
       setPassword(getCipherKey(config.session_key));
-      await new Promise((resolve) => {
-        fs.createReadStream(`${__dirname}/../session.secure`)
-          .pipe(
-            createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
-          )
-          .on("finish", () => {
-            resolve();
-          });
-      });
+      console.log("dirname:",__dirname);
+      fs.appendFileSync(`${__dirname}/temp.zip`, "");//,()=>{console.log("file created")});
+      
+        await new Promise((resolve) => {
+          fs.createReadStream(`${__dirname}/../session.secure`)
+            .pipe(
+              createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
+            )
+            .on("finish", () => {
+              console.log("resolving...")
+              resolve();
+              console.log("resolved!")
+              let unzip = new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
+              unzip.extractAllToAsync(base, true, false, (err)=>{
+                if(err) {
+                  console.log("error caught:", err)
+      
+                }
+              });
+            });
+        });
+        
+      
 
-      let unzip = new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
-      unzip.extractAllToAsync(base, true);
-      console.log("Session files replicated");
+      
+        console.log("Session files replicated");
+        
+      
     } catch (error) {
       throw new Error(
         `Session file not found, corrupted or password not matched. ${error.toString()}`

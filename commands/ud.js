@@ -1,5 +1,5 @@
 //jshint esversion:8
-const dictionary = require("urban-dictionary");
+const dictionary = require("ud-api");
 
 async function ud(term) {
   try {
