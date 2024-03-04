@@ -1,5 +1,5 @@
 //jshint esversion:8
-const config = require("../config");
+const config = require("../../config");
 
 const execute = async (client, msg) => {
   if (!msg.to.includes("-")) {

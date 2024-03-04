@@ -1,6 +1,6 @@
 //jshint esversion:8
 const ocrSpace = require("ocr-space-api-wrapper");
-const config = require("../config");
+const config = require("../../config");
 
 async function readImage(attachmentData) {
   try {

@@ -1,7 +1,7 @@
 const axios = require("axios");
 const { MessageMedia } = require("whatsapp-web.js");
-const formatNum = require("../helpers/formatNum");
-const processImage = require("../helpers/processImage");
+const formatNum = require("../../helpers/formatNum");
+const processImage = require("../../helpers/processImage");
 const imdb_host = `https://imdb-api.tprojects.workers.dev`; // no slash at the end
 
 const execute = async (client, msg, args) => {

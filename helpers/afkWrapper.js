@@ -1,9 +1,20 @@
 //jshint esversion:11
+
+/**
+ * @fileoverview This file contains helper functions for managing AFK (Away From Keyboard) status and data.
+ * @module afkWrapper
+ */
+
 const fs = require("fs");
 const path = require("path");
 const database = require("../db");
 const calcTime = require("./timediff");
 
+/**
+ * Reads the AFK data from the database and writes it to a JSON file.
+ * @async
+ * @returns {Object|null} The AFK data if available, otherwise null.
+ */
 async function read() {
   let { conn, coll } = await database("afk");
   try {
@@ -24,6 +35,12 @@ async function read() {
   }
 }
 
+/**
+ * Updates the chat list with the given chat and current timestamp.
+ * @async
+ * @param {string} chat - The chat to be added to the chat list.
+ * @returns {boolean} True if the chat list was successfully updated, false otherwise.
+ */
 async function updateChatList(chat) {
   const { conn, coll } = await database("afk");
   try {
@@ -46,9 +63,13 @@ async function updateChatList(chat) {
   }
 }
 
-/* Userge inspired AFK message */
+/**
+ * Generates a random AFK message from a predefined list.
+ * @returns {string} The randomly selected AFK message.
+ */
 function getAfkString() {
   const afkStrings = [
+    // List of AFK messages
     "I'm busy right now. Please talk in a bag and when I come back you can just give me the bag!",
     "I'm away right now. If you need anything, leave a message after the beep:\n```beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeep!```",
     "You missed me, next time aim better.",
@@ -75,6 +96,11 @@ function getAfkString() {
   return afkStrings[Math.floor(Math.random() * afkStrings.length)];
 }
 
+/**
+ * Retrieves the AFK data from the JSON file or the database if the file is not available.
+ * @async
+ * @returns {Object|null} The AFK data if available, otherwise null.
+ */
 async function getAFKData() {
   let data;
   try {
@@ -87,6 +113,12 @@ async function getAFKData() {
   return data;
 }
 
+/**
+ * Sets the user's AFK status with the given reason.
+ * @async
+ * @param {string} reason - The reason for setting the AFK status.
+ * @returns {Object} An object indicating whether the AFK status was successfully set.
+ */
 async function setAfk(reason) {
   let data = await getAFKData();
 
@@ -112,6 +144,11 @@ async function setAfk(reason) {
   }
 }
 
+/**
+ * Sets the user's online status and removes the AFK data.
+ * @async
+ * @returns {Object|null} An object containing the chat list and the time difference if the user was previously AFK, otherwise null.
+ */
 async function setOnline() {
   let data = await getAFKData();
 
@@ -141,6 +178,12 @@ async function setOnline() {
   }
 }
 
+/**
+ * Handles the AFK status for a given sender.
+ * @async
+ * @param {string} sender - The sender of the message.
+ * @returns {Object|null} An object containing the notification status, the AFK reason, the time difference, and the AFK message if the sender is AFK, otherwise null.
+ */
 async function afkHandler(sender) {
   let data = await getAFKData();
 

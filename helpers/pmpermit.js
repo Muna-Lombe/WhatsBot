@@ -4,10 +4,15 @@ const fs = require("fs");
 const path = require("path");
 const database = require("../db");
 
+/**
+ * Inserts a new document into the "pmpermit" collection.
+ * @param {string} id - The ID of the document to be inserted.
+ * @returns {Promise<boolean>} - A promise that resolves to true if the document was inserted successfully, or false if an error occurred.
+ */
 async function insert(id) {
   let { conn, coll } = await database("pmpermit");
   try {
-    await coll.insertOne({ number: id, times: 1, permit: false });
+    await coll.create({ number: id, times: 1, permit: false });
     return true;
   } catch (error) {
     return false;
@@ -18,10 +23,16 @@ async function insert(id) {
   }
 }
 
+/**
+ * Updates the violation count for a given ID in the "pmpermit" collection.
+ * @param {string} id - The ID of the user.
+ * @param {number} timesvio - The number of times the user has violated.
+ * @returns {Promise<boolean>} - A promise that resolves to true if the update is successful, false otherwise.
+ */
 async function updateviolant(id, timesvio) {
   let { conn, coll } = await database("pmpermit");
   try {
-    await coll.updateOne({ number: id }, { $set: { times: timesvio } });
+    await coll.update({ number: id }, { $set: { times: timesvio } });
     return true;
   } catch (error) {
     return false;
@@ -32,10 +43,18 @@ async function updateviolant(id, timesvio) {
   }
 }
 
+/**
+ * Reads the data for a given ID from the "pmpermit" collection in the database.
+ * If the data exists and has a permit, it saves the cache for later usage.
+ * @param {string} id - The ID to read the data for.
+ * @returns {Promise<Object>}  - A Promise object containing the data for the ID.
+ * If the data exists and has a permit, the object will have a "found" property set to true.
+ * If the data does not exist or does not have a permit, the object will have a "found" property set to false.
+ */
 async function read(id) {
   let { conn, coll } = await database("pmpermit");
   try {
-    let data = await coll.findOne({ number: id });
+    let data = await coll.read({ number: id });
     if (data && data.permit) {
       // save the cache for later usage
       fs.writeFileSync(
@@ -53,15 +72,21 @@ async function read(id) {
   }
 }
 
+/**
+ * Updates the permit status for a given ID in the database and writes the updated information to a cache file.
+ * @param {string} id - The ID for which the permit status needs to be updated.
+ * @returns {Boolean} - Returns true if the permit status was successfully updated, false otherwise.
+ */
+
 async function permit(id) {
   let { conn, coll } = await database("pmpermit");
   try {
-    let { matchedCount } = await coll.updateOne(
+    let { matchedCount } = await coll.update(
       { number: id },
       { $set: { times: 1, permit: true } }
     );
     if (!matchedCount)
-      await coll.insertOne({ number: id, times: 1, permit: true });
+      await coll.create({ number: id, times: 1, permit: true });
     fs.writeFileSync(
       path.join(__dirname, `../cache/${id}.json`),
       JSON.stringify({ found: true, number: id, times: 1, permit: true })
@@ -76,10 +101,38 @@ async function permit(id) {
   }
 }
 
+/**
+ * Deletes the cache file for a given ID and updates the permit status to false in the database.
+ * @param {string} id - The ID for which the cache file and permit status need to be deleted.
+ * @returns {boolean} - Returns true if the cache file and permit status were successfully deleted, false otherwise.
+ */
+async function deleteCacheAndPermit(id) {
+  let { conn, coll } = await database("pmpermit");
+  try {
+    await coll.update({ number: id }, { $set: { times: 1, permit: false } });
+    try {
+      fs.unlinkSync(`${__dirname}/../cache/${id}.json`);
+      console.log(`Deleting cache file for: ${id}`);
+    } catch (nofile) {}
+    return true;
+  } catch (error) {
+    return false;
+  } finally {
+    if (conn) {
+      await conn.close();
+    }
+  }
+}
+
+/**
+ * Updates the permit status to false in the database and deletes the cache file for a given ID.
+ * @param {string} id - The ID for which the permit status needs to be updated to false and the cache file needs to be deleted.
+ * @returns {boolean} - Returns true if the permit status was successfully updated and the cache file was deleted, false otherwise.
+ */
 async function nopermit(id) {
   let { conn, coll } = await database("pmpermit");
   try {
-    await coll.updateOne({ number: id }, { $set: { times: 1, permit: false } });
+    await coll.update({ number: id }, { $set: { times: 1, permit: false } });
 
     try {
       fs.unlinkSync(`${__dirname}/../cache/${id}.json`);
@@ -96,6 +149,11 @@ async function nopermit(id) {
   }
 }
 
+/**
+ * Handles the permit status for a given ID.
+ * @param {string} id - The ID to check the permit status for.
+ * @returns {Promise<Object>} - A Promise object containing the permit status, block status, and message.
+ */
 async function handler(id) {
   // first check for cache
   let checkPermit;
@@ -138,6 +196,12 @@ async function handler(id) {
     return { permit: true, block: false, msg: null };
   }
 }
+
+/**
+ * Checks if a given ID has permit status.
+ * @param {string} id - The ID to check the permit status for.
+ * @returns {Promise<boolean>} - Returns true if the ID has permit status, false otherwise.
+ */
 
 async function isPermitted(id) {
   try {

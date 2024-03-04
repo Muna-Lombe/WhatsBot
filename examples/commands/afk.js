@@ -1,7 +1,7 @@
 //jshint esversion:11
-const config = require("../config");
-const logger = require("../logger");
-const { setAfk, setOnline, getAFKData } = require("../helpers/afkWrapper");
+const config = require("../../config");
+const logger = require("../../logger");
+const { setAfk, setOnline, getAFKData } = require("../../helpers/afkWrapper");
 
 const formatTime = (time) =>
   new Intl.DateTimeFormat("en-IN", {

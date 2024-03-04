@@ -1,6 +1,6 @@
 //jshint esversion:8
-const config = require("../config");
-const pmpermit = require("../helpers/pmpermit");
+const config = require("../../config");
+const pmpermit = require("../../helpers/pmpermit");
 
 const execute = async (client, msg) => {
   if (config.pmpermit_enabled == "true" && !msg.to.includes("-")) {

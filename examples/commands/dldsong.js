@@ -1,6 +1,6 @@
 //jshint esversion:8
 const { MessageMedia } = require("whatsapp-web.js");
-const { download } = require("../helpers/song");
+const { download } = require("../../helpers/song");
 
 const execute = async (client, msg, args) => {
   if (msg.hasQuotedMsg) {

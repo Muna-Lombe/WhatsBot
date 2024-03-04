@@ -1,10 +1,27 @@
 //jshint esversion:11
 const express = require("express");
 const app = express();
+/**
+ * Main entry point of the WhatsBot application.
+ * Initializes the WhatsApp client using whatsapp-web.js library.
+ * @module WhatsBot
+ */
 const { Client, LocalAuth } = require("whatsapp-web.js");
+/**
+ * Helper module for managing PM permits.
+ * @module pmpermit
+ */
 const pmpermit = require("./helpers/pmpermit");
+/**
+ * Configuration object for the application.
+ * @type {object}
+ */
 const config = require("./config");
 const fs = require("fs");
+/**
+ * Logger module for logging messages.
+ * @type {object}
+ */
 const logger = require("./logger");
 const { afkHandler } = require("./helpers/afkWrapper");
 
@@ -12,7 +29,6 @@ const client = new Client({
   puppeteer: { headless: true, args: ["--no-sandbox"] },
   authStrategy: new LocalAuth({ clientId: "whatsbot" }),
 });
-
 
 client.commands = new Map();
 
@@ -27,8 +43,12 @@ fs.readdir("./commands", (err, files) => {
   });
 });
 
-client.initialize();
+console.log("client initializing...");
 
+client
+  .initialize()
+  .then((res) => console.log("client initialize!"))
+  .catch((err) => console.log("client error", err));
 
 client.on("auth_failure", () => {
   console.error(
@@ -36,7 +56,7 @@ client.on("auth_failure", () => {
   );
 });
 
-// 
+//
 
 client.on("ready", async () => {
   console.log("Bot has been started");
@@ -51,13 +71,14 @@ client.on("message", async (msg) => {
   if (!msg.author && config.pmpermit_enabled === "true") {
     // Pm check for pmpermit module
     var checkIfAllowed = await pmpermit.handler(msg.from.split("@")[0]); // get status
+
     if (!checkIfAllowed.permit) {
       // if not permitted
       if (checkIfAllowed.block) {
         await msg.reply(checkIfAllowed.msg);
         setTimeout(async () => {
           await (await msg.getContact()).block();
-        }, 3000);
+        }, 500);
       } else if (!checkIfAllowed.block) {
         msg.reply(checkIfAllowed.msg);
       }
@@ -90,25 +111,33 @@ client.on("message", async (msg) => {
 
 client.on("message_create", async (msg) => {
   // auto pmpermit
+  // console.log("message create called")
   try {
     if (config.pmpermit_enabled == "true") {
-      var otherChat = await (await msg.getChat()).getContact();
+      // console.log("pmpermit_enabled")
+
+      let otherChat = await (await msg.getChat()).getContact();
+      let authorIsPermited = await pmpermit.isPermitted(otherChat.number);
+      // console.log("checking if author permitted...", authorIsPermited)
       if (
         msg.fromMe &&
         msg.type !== "notification_template" &&
         otherChat.isUser &&
-        !(await pmpermit.isPermitted(otherChat.number)) &&
+        !authorIsPermited &&
         !otherChat.isMe &&
         !msg.body.startsWith("!") &&
         !msg.body.endsWith("_Powered by WhatsBot_")
       ) {
+        console.log("is not permitted");
         await pmpermit.permit(otherChat.number);
         await msg.reply(
           `You are automatically permitted for message !\n\n_Powered by WhatsBot_`
         );
       }
     }
-  } catch (ignore) {}
+  } catch (err) {
+    console.log("something not right in authorPermit:\n", err);
+  }
 
   if (msg.fromMe && msg.body.startsWith("!")) {
     let args = msg.body.slice(1).trim().split(/ +/g);
@@ -149,6 +178,12 @@ client.on("message_revoke_everyone", async (after, before) => {
 
 client.on("disconnected", (reason) => {
   console.log("Client was logged out", reason);
+  try {
+    client.destroy();
+    client.initialize();
+  } catch (error) {
+    logger(client, "Client was logged out, could not reconnect");
+  }
 });
 
 app.get("/", (req, res) => {

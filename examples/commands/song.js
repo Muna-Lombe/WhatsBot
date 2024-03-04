@@ -1,7 +1,7 @@
 //jshint esversion:8
 const fs = require("fs");
 const path = require("path");
-const { search } = require("../helpers/song");
+const { search } = require("../../helpers/song");
 
 const execute = async (client, msg, args) => {
   msg.delete(true);

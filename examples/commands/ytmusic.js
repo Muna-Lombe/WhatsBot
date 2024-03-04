@@ -1,17 +1,16 @@
 //jshint esversion:8
 const { MessageMedia } = require("whatsapp-web.js");
 const axios = require("axios");
-const formatNum = require("../helpers/formatNum");
-const processImage = require("../helpers/processImage");
+const formatNum = require("../../helpers/formatNum");
+const processImage = require("../../helpers/processImage");
 const { getShortURL } = require("../commands/shorten");
-const savefrom_base = "https://sfrom.net/";
 
 async function youtube(url) {
   try {
     let data = (
       await axios.get(`https://yoothoob.vercel.app/fromLink?link=${url}`)
     ).data;
-    let shortUrl = await getShortURL(savefrom_base + url);
+    let shortUrl = await getShortURL(data.assets.mp3);
     return {
       title: data.title,
       likes: formatNum(data.stats.likes),
@@ -24,8 +23,7 @@ async function youtube(url) {
           data.images[0] ||
           null
       ),
-      download_link:
-        shortUrl === "error" ? savefrom_base + url : shortUrl.short,
+      download_link: shortUrl === "error" ? data.assets.mp3 : shortUrl.short,
     };
   } catch (error) {
     return "error";
@@ -69,7 +67,7 @@ const execute = async (client, msg, args) => {
           "```\nComments: " +
           "```" +
           data.comments +
-          "```\n\n*Download Link* 👇\n" +
+          "```\n\n*Download Mp3* 👇\n" +
           "```" +
           data.download_link +
           "```",
@@ -79,11 +77,11 @@ const execute = async (client, msg, args) => {
 };
 
 module.exports = {
-  name: "YouTube Download",
-  description: "Gets download link for youtube video",
-  command: "!yt",
+  name: "YouTube Music",
+  description: "Download mp3 from a Youtube Link",
+  command: "!ytmusic",
   commandType: "plugin",
   isDependent: false,
-  help: `*Youtube*\n\nDownload a Youtube video with this command.\n\n*!yt [Youtube-Link]*\nor,\nReply a message with *!yt* to Download`,
+  help: `*Youtube Music*\n\nDownload mp3 from a Youtube Link with this command.\n\n*!ytmusic [Youtube-Link]*\nor,\nReply a youtube link with *!ytmusic*`,
   execute,
 };
