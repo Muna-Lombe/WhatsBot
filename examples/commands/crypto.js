@@ -1,6 +1,7 @@
 //jshint esversion:8
 //Coded by Sumanjay (https://github.com/cyberboysumanjay)
 const axios = require("axios");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function getPrice(cryptoCode) {
   cryptoCode = cryptoCode.toUpperCase();
@@ -33,21 +34,25 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Something unexpected happened while fetching Cryptocurrency Price```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Something unexpected happened while fetching Cryptocurrency Price```"
+      )
     );
   }
   if (data == "unsupported") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Support for this CryptoCurrency is not yet added```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Support for this CryptoCurrency is not yet added```"
+      )
     );
   } else {
     let date = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
     await client.sendMessage(
       msg.to,
-      `Price of *${data.name}* as of ${date} is *₹ ${data.price}*`
+      botMsg(`Price of *${data.name}* as of ${date} is *₹ ${data.price}*`)
     );
   }
 };

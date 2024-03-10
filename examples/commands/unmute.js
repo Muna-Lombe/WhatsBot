@@ -1,9 +1,15 @@
+const { botMsg } = require("../../helpers/messageUtils");
+
 //jshint esversion:8
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   if (!msg.to.includes("-")) {
     let chat = await msg.getChat();
     await chat.unmute(true);
-    msg.reply(`*🗣 Unmuted*\n\nYou have been unmuted\n\n _Powered by WhatsBot_`);
+    msg.reply(
+      botMsg(`*🗣 Unmuted*\n\nYou have been unmuted\n\n _Powered by WhatsBot_`)
+    );
   }
 };
 

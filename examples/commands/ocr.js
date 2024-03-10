@@ -1,6 +1,7 @@
 //jshint esversion:8
 const ocrSpace = require("ocr-space-api-wrapper");
 const config = require("../../config");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function readImage(attachmentData) {
   try {
@@ -18,6 +19,8 @@ async function readImage(attachmentData) {
 }
 
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   msg.delete(true);
   if (msg.hasQuotedMsg) {
     let quotedMsg = await msg.getQuotedMessage();
@@ -25,17 +28,19 @@ const execute = async (client, msg) => {
     let data = await readImage(attachmentData);
     if (data == "error") {
       quotedMsg.reply(
-        `Error occured while reading the image. Please make sure the image is clear.`
+        botMsg(
+          `Error occured while reading the image. Please make sure the image is clear.`
+        )
       );
     } else {
       quotedMsg.reply(
-        `*Extracted Text from the Image*  👇\n\n${data.parsedText}`
+        botMsg(`*Extracted Text from the Image*  👇\n\n${data.parsedText}`)
       );
     }
   } else {
     await client.sendMessage(
       msg.to,
-      "```Please reply to an image with text in it```"
+      botMsg("```Please reply to an image with text in it```")
     );
   }
 };

@@ -28,6 +28,16 @@ module.exports = {
         fs.rmSync(`${__dirname}/../.wwebjs_auth`, { recursive: true });
         console.log("Session directory cleaned");
       }
+      const commandInput = JSON.parse(
+        fs.readFileSync(`${__dirname}/../cache/commandInput.json`)
+      );
+      console.log("cleaning :", commandInput);
+      if (commandInput && commandInput.lastCommand) {
+        fs.writeFileSync(
+          `${__dirname}/../cache/commandInput.json`,
+          JSON.stringify({})
+        );
+      }
     } catch (_) {}
   },
   write: async function write(password) {
@@ -52,34 +62,28 @@ module.exports = {
   replicate: async function replicate() {
     try {
       setPassword(getCipherKey(config.session_key));
-      console.log("dirname:",__dirname);
-      fs.appendFileSync(`${__dirname}/temp.zip`, "");//,()=>{console.log("file created")});
-      
-        await new Promise((resolve) => {
-          fs.createReadStream(`${__dirname}/../session.secure`)
-            .pipe(
-              createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
-            )
-            .on("finish", () => {
-              console.log("resolving...")
-              resolve();
-              console.log("resolved!")
-              let unzip = new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
-              unzip.extractAllToAsync(base, true, false, (err)=>{
-                if(err) {
-                  console.log("error caught:", err)
-      
-                }
-              });
-            });
-        });
-        
-      
+      // console.log("dirname:",__dirname);
+      fs.appendFileSync(`${__dirname}/temp.zip`, ""); //,()=>{console.log("file created")});
 
-      
-        console.log("Session files replicated");
-        
-      
+      await new Promise((resolve) => {
+        fs.createReadStream(`${__dirname}/../session.secure`)
+          .pipe(
+            createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
+          )
+          .on("finish", () => {
+            // console.log("resolving...")
+            resolve();
+            // console.log("resolved!")
+            let unzip = new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
+            unzip.extractAllToAsync(base, true, false, (err) => {
+              if (err) {
+                // console.log("error caught:", err)
+              }
+            });
+          });
+      });
+
+      // console.log("Session files replicated");
     } catch (error) {
       throw new Error(
         `Session file not found, corrupted or password not matched. ${error.toString()}`

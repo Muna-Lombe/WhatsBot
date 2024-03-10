@@ -1,14 +1,19 @@
 //jshint esversion:8
 const config = require("../../config");
+const { botMsg } = require("../../helpers/messageUtils");
 
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   if (!msg.to.includes("-")) {
     let chat = await msg.getChat();
     let unmuteDate = new Date();
     unmuteDate.setSeconds(Number(unmuteDate.getSeconds()) + 3600);
     await chat.mute(unmuteDate);
     msg.reply(
-      `*🤫 Muted*\n\nYou have been muted for 1 hour\n\n _Powered by WhatsBot_`
+      botMsg(
+        `*🤫 Muted*\n\nYou have been muted for 1 hour\n\n _Powered by WhatsBot_`
+      )
     );
   }
 };

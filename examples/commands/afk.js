@@ -2,6 +2,7 @@
 const config = require("../../config");
 const logger = require("../../logger");
 const { setAfk, setOnline, getAFKData } = require("../../helpers/afkWrapper");
+const { botMsg } = require("../../helpers/messageUtils");
 
 const formatTime = (time) =>
   new Intl.DateTimeFormat("en-IN", {
@@ -15,21 +16,25 @@ const afkOn = async (client, chatid, reason) => {
   if (data?.afk) {
     await client.sendMessage(
       chatid,
-      `You've already marked yourself offline at ${formatTime(
-        data.time
-      )}. If you want to set yourself back online, use *!afk off*`
+      botMsg(
+        `You've already marked yourself offline at ${formatTime(
+          data.time
+        )}. If you want to set yourself back online, use *!afk off*`
+      )
     );
   } else if (data?.set) {
     await client.sendMessage(
       chatid,
-      `You've marked yourself offline! To mark yourself back online use *!afk off*`
+      botMsg(
+        `You've marked yourself offline! To mark yourself back online use *!afk off*`
+      )
     );
     await logger(
       client,
       `You've marked yourself offline at ${formatTime(Date.now())}`
     );
   } else {
-    await client.sendMessage(chatid, `Some error occured.`);
+    await client.sendMessage(chatid, botMsg(`Some error occured.`));
   }
 };
 
@@ -42,10 +47,10 @@ const afkOff = async (client, chatid) => {
         (list, chat) => list + `${chat[0]} --> ${formatTime(chat[1])}\n`,
         ""
       )}`;
-    await client.sendMessage(chatid, msg);
+    await client.sendMessage(chatid, botMsg(msg));
     await logger(client, `You came online at ${formatTime(Date.now())}`);
   } else {
-    await client.sendMessage(chatid, `Your aren't afk.`);
+    await client.sendMessage(chatid, botMsg(`Your aren't afk.`));
   }
 };
 
@@ -54,12 +59,14 @@ const afkStatus = async (client, chatid) => {
   if (data) {
     await client.sendMessage(
       chatid,
-      `You've marked yourself offline at ${formatTime(data.time)}.\nReason: ${
-        data.reason
-      }\n\nIf you want to set yourself back online, use *!afk aff*`
+      botMsg(
+        `You've marked yourself offline at ${formatTime(data.time)}.\nReason: ${
+          data.reason
+        }\n\nIf you want to set yourself back online, use *!afk aff*`
+      )
     );
   } else {
-    await client.sendMessage(chatid, `You're online.`);
+    await client.sendMessage(chatid, botMsg(`You're online.`));
   }
 };
 
@@ -79,9 +86,9 @@ const execute = async (client, msg, args) => {
     default:
       await client.sendMessage(
         msg.to,
-        `Invalid option provide. Please refer to help.`
+        botMsg(`Invalid option provide. Please refer to help.`)
       );
-      await client.sendMessage(msg.to, "!help afk");
+      await client.sendMessage(msg.to, botMsg("!help afk"));
   }
 };
 

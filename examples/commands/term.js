@@ -1,16 +1,26 @@
 //jshint esversion:8
 
 const { exec } = require("child_process");
+const { botMsg } = require("../../helpers/messageUtils");
 
 const execute = async (client, msg, args) => {
   msg.delete(true);
   exec("cd public && " + args.join(" "), async (error, stdout, stderr) => {
     if (error) {
-      await client.sendMessage(msg.to, "*whatsbot~:* ```" + error + "```");
+      await client.sendMessage(
+        msg.to,
+        botMsg("*whatsbot~:* ```" + error + "```")
+      );
     } else if (stderr) {
-      await client.sendMessage(msg.to, "*whatsbot~:* ```" + stderr + "```");
+      await client.sendMessage(
+        msg.to,
+        botMsg("*whatsbot~:* ```" + stderr + "```")
+      );
     } else {
-      await client.sendMessage(msg.to, "*whatsbot~:* ```" + stdout + "```");
+      await client.sendMessage(
+        msg.to,
+        botMsg("*whatsbot~:* ```" + stdout + "```")
+      );
     }
   });
 };

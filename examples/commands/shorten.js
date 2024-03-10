@@ -1,6 +1,7 @@
 //jshint esversion:8
 // Coded by Sumanjay (https://github.com/cyberboysumanjay)
 const axios = require("axios");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function getShortURL(input) {
   let mainconfig = {
@@ -33,13 +34,15 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Please make sure the entered URL is in correct format.```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Please make sure the entered URL is in correct format.```"
+      )
     );
   } else {
     await client.sendMessage(
       msg.to,
-      `Short URL for ${data.input} is 👇\n${data.short}`
+      botMsg(`Short URL for ${data.input} is 👇\n${data.short}`)
     );
   }
 };

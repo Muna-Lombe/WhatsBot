@@ -24,7 +24,16 @@ const fs = require("fs");
  */
 const logger = require("./logger");
 const { afkHandler } = require("./helpers/afkWrapper");
+const {
+  incommingInput,
+  updateInputState,
+} = require("./helpers/commandInputState");
+const { getContactIdByName } = require("./helpers/findContact");
+const { callCommand } = require("./helpers/commandWrapper");
+const { botMsg } = require("./helpers/messageUtils");
+const { INPUTSTATETYPES } = require("./helpers/commandUtils");
 
+const botmark = "​";
 const client = new Client({
   puppeteer: { headless: true, args: ["--no-sandbox"] },
   authStrategy: new LocalAuth({ clientId: "whatsbot" }),
@@ -69,18 +78,17 @@ client.on("ready", async () => {
 
 client.on("message", async (msg) => {
   if (!msg.author && config.pmpermit_enabled === "true") {
-    // Pm check for pmpermit module
     var checkIfAllowed = await pmpermit.handler(msg.from.split("@")[0]); // get status
 
     if (!checkIfAllowed.permit) {
       // if not permitted
       if (checkIfAllowed.block) {
-        await msg.reply(checkIfAllowed.msg);
+        await msg.reply(botMsg(checkIfAllowed.msg));
         setTimeout(async () => {
           await (await msg.getContact()).block();
         }, 500);
       } else if (!checkIfAllowed.block) {
-        msg.reply(checkIfAllowed.msg);
+        msg.reply(botMsg(checkIfAllowed.msg));
       }
     } else {
       await checkAndApplyAfkMode();
@@ -103,7 +111,7 @@ client.on("message", async (msg) => {
       lastseen += timediff[2] ? `${timediff[2]} min ` : "";
       lastseen += `${timediff[3]} sec ago`;
       await msg.reply(
-        `${afkData.msg}\n\n😊😊😊\n\nI am currently offline...\n\n*Reason*: ${reason}\n*Last Seen*:${lastseen}`
+        `${botmark}${afkData.msg}\n\n😊😊😊\n\nI am currently offline...\n\n*Reason*: ${reason}\n*Last Seen*:${lastseen}`
       );
     }
   }
@@ -131,7 +139,7 @@ client.on("message_create", async (msg) => {
         console.log("is not permitted");
         await pmpermit.permit(otherChat.number);
         await msg.reply(
-          `You are automatically permitted for message !\n\n_Powered by WhatsBot_`
+          `${botmark}You are automatically permitted for message !\n\n_Powered by WhatsBot_`
         );
       }
     }
@@ -139,25 +147,63 @@ client.on("message_create", async (msg) => {
     console.log("something not right in authorPermit:\n", err);
   }
 
-  if (msg.fromMe && msg.body.startsWith("!")) {
-    let args = msg.body.slice(1).trim().split(/ +/g);
-    let command = args.shift().toLowerCase();
-
-    console.log({ command, args });
-
-    if (client.commands.has(command)) {
-      try {
-        await client.commands.get(command).execute(client, msg, args);
-      } catch (error) {
-        console.log(error);
+  if (
+    msg.fromMe &&
+    !msg.body.startsWith("!") &&
+    !msg.body.startsWith(botmark)
+  ) {
+    console.log("is message incoming: ", incommingInput().isIncomming);
+    const args = msg.body.split(" ");
+    const input = incommingInput();
+    if (input.inputState === INPUTSTATETYPES["reading command"]) {
+      console.log(INPUTSTATETYPES["reading command"]);
+      // updateInputState("schedule", INPUTSTATETYPES["reading command"], false);
+      return client.commands
+        .get("schedule")
+        .execute(client, msg, [INPUTSTATETYPES["reading command"], ...args]);
+    }
+    if (input.inputState === INPUTSTATETYPES["confirming command"]) {
+      console.log(INPUTSTATETYPES["confirming command"]);
+      // updateInputState("schedule", INPUTSTATETYPES["confirming command"], false);
+      return client.commands
+        .get("schedule")
+        .execute(client, msg, [INPUTSTATETYPES["confirming command"], ...args]);
+    }
+    if (input.inputState === INPUTSTATETYPES["updating command"]) {
+      console.log(INPUTSTATETYPES["updating command"]);
+      // updateInputState("schedule", INPUTSTATETYPES["updating command"], false);
+      if (input.args[1] === "edit") {
+        if (input.args?.[2]) {
+          return client.commands
+            .get("schedule")
+            .execute(client, msg, [
+              INPUTSTATETYPES["updating command"],
+              "edit",
+              input.args?.[2],
+              ...args,
+            ]);
+        }
+        return client.commands
+          .get("schedule")
+          .execute(client, msg, [
+            INPUTSTATETYPES["updating command"],
+            "edit",
+            ...args,
+          ]);
       }
-    } else {
-      await client.sendMessage(
-        msg.to,
-        "No such command found. Type !help to get the list of available commands"
-      );
+      return client.commands
+        .get("schedule")
+        .execute(client, msg, [INPUTSTATETYPES["updating command"], ...args]);
     }
   }
+
+  if (msg.fromMe && msg.body.startsWith("!")) {
+    callCommand(client, msg, incommingInput(), updateInputState);
+  }
+
+  // if(getContactIdByName("muna") === msg.from && msg.body.startsWith("!")){
+  //   callCommand(client, msg, incommingInput(), updateInputState)
+  // }
 });
 
 client.on("message_revoke_everyone", async (after, before) => {
@@ -170,7 +216,7 @@ client.on("message_revoke_everyone", async (after, before) => {
     ) {
       client.sendMessage(
         before.from,
-        "_You deleted this message_ 👇👇\n\n" + before.body
+        botMsg("_You deleted this message_ 👇👇\n\n" + before.body)
       );
     }
   }

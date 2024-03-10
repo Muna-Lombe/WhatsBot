@@ -3,6 +3,7 @@ const config = require("../config");
 const axios = require("axios");
 const { MessageMedia } = require("whatsapp-web.js");
 const packageJson = require("../package.json");
+const { botMsg } = require("../helpers/messageUtils");
 
 async function get() {
   return {
@@ -22,12 +23,14 @@ async function get() {
 }
 
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   msg.delete(true);
   let startdata = await get();
   await client.sendMessage(
     msg.to,
     new MessageMedia(startdata.mimetype, startdata.data, startdata.filename),
-    { caption: startdata.msg }
+    { caption: botMsg(startdata.msg) }
   );
 };
 

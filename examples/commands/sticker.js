@@ -1,5 +1,6 @@
 //jshint esversion:8
 const { MessageMedia } = require("whatsapp-web.js");
+const { botMsg } = require("../../helpers/messageUtils");
 
 const execute = async (client, msg) => {
   msg.delete(true);
@@ -13,12 +14,12 @@ const execute = async (client, msg) => {
         attachmentData.data,
         attachmentData.filename
       ),
-      { sendMediaAsSticker: true }
+      { sendMediaAsSticker: true, caption: botmark }
     );
   } else {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` + "```No image found to make a Sticker```"
+      botMsg(`🙇‍♂️ *Error*\n\n` + "```No image found to make a Sticker```")
     );
   }
 };

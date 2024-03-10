@@ -1,5 +1,6 @@
 //jshint esversion:8
 const axios = require("axios");
+const { botMsg } = require("../../helpers/messageUtils");
 
 function yesno(status) {
   if (status) {
@@ -41,15 +42,17 @@ async function emailVerifier(email) {
 }
 
 const execute = async (client, msg, args) => {
+  const botmark = "​";
+
   msg.delete(true);
   let getdata;
   if (msg.hasQuotedMsg) {
     let quotedMsg = await msg.getQuotedMessage();
     getdata = await emailVerifier(quotedMsg.body);
-    quotedMsg.reply(getdata);
+    quotedMsg.reply(botMsg(getdata));
   } else {
     getdata = await emailVerifier(args[0]);
-    await client.sendMessage(msg.to, getdata);
+    await client.sendMessage(msg.to, botMsg(getdata));
   }
 };
 

@@ -4,6 +4,7 @@ const axios = require("axios");
 const formatNum = require("../../helpers/formatNum");
 const processImage = require("../../helpers/processImage");
 const { getShortURL } = require("../commands/shorten");
+const { botMsg } = require("../../helpers/messageUtils");
 const savefrom_base = "https://sfrom.net/";
 
 async function youtube(url) {
@@ -47,8 +48,10 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Something Unexpected Happened to fetch the YouTube video```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Something Unexpected Happened to fetch the YouTube video```"
+      )
     );
   } else {
     await client.sendMessage(
@@ -59,20 +62,21 @@ const execute = async (client, msg, args) => {
         data.image.filename
       ),
       {
-        caption:
+        caption: botMsg(
           `*${data.title}*\n\nViews: ` +
-          "```" +
-          data.views +
-          "```\nLikes: " +
-          "```" +
-          data.likes +
-          "```\nComments: " +
-          "```" +
-          data.comments +
-          "```\n\n*Download Link* 👇\n" +
-          "```" +
-          data.download_link +
-          "```",
+            "```" +
+            data.views +
+            "```\nLikes: " +
+            "```" +
+            data.likes +
+            "```\nComments: " +
+            "```" +
+            data.comments +
+            "```\n\n*Download Link* 👇\n" +
+            "```" +
+            data.download_link +
+            "```"
+        ),
       }
     );
   }

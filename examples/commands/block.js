@@ -1,8 +1,14 @@
+const { botMsg } = require("../../helpers/messageUtils");
+
 //jshint esversion:8
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   if (!msg.to.includes("-")) {
     await msg.reply(
-      `*❌ Blocked* \n\n You have been blocked\n\n _Powered by WhatsBot_`
+      botMsg(
+        `*❌ Blocked* \n\n You have been blocked\n\n _Powered by WhatsBot_`
+      )
     );
     let chat = await msg.getChat();
     let contact = await chat.getContact();

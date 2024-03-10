@@ -1,7 +1,11 @@
+const { botMsg } = require("../helpers/messageUtils");
+
 //jshint esversion:8
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   client.sendPresenceAvailable();
-  msg.reply("```" + "I will be online from now." + "```");
+  msg.reply(botMsg("```" + "I will be online from now." + "```"));
 };
 
 module.exports = {

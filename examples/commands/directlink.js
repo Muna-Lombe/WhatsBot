@@ -2,6 +2,7 @@
 const axios = require("axios");
 const FormData = require("form-data");
 let mime = require("mime-to-extensions");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function telegraph(attachmentData) {
   let form = new FormData();
@@ -22,18 +23,20 @@ async function telegraph(attachmentData) {
     });
 }
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   msg.delete(true);
   if (msg.hasQuotedMsg) {
     let quotedMsg = await msg.getQuotedMessage();
     let attachmentData = await quotedMsg.downloadMedia();
     let data = await telegraph(attachmentData);
     if (data == "error") {
-      quotedMsg.reply(`Error occured while create direct link.`);
+      quotedMsg.reply(botMsg(`Error occured while create direct link.`));
     } else {
-      quotedMsg.reply(`🔗 *Direct Link 👇*\n\n` + "```" + data + "```");
+      quotedMsg.reply(botMsg(`🔗 *Direct Link 👇*\n\n` + "```" + data + "```"));
     }
   } else {
-    await client.sendMessage(msg.to, "Please reply to a media file");
+    await client.sendMessage(msg.to, botMsg("Please reply to a media file"));
   }
 };
 

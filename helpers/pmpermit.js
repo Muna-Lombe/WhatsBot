@@ -81,11 +81,11 @@ async function read(id) {
 async function permit(id) {
   let { conn, coll } = await database("pmpermit");
   try {
-    let { matchedCount } = await coll.update(
+    let res = await coll.update(
       { number: id },
       { $set: { times: 1, permit: true } }
     );
-    if (!matchedCount)
+    if (!res?.matchedCount)
       await coll.create({ number: id, times: 1, permit: true });
     fs.writeFileSync(
       path.join(__dirname, `../cache/${id}.json`),
@@ -93,6 +93,7 @@ async function permit(id) {
     );
     return true;
   } catch (error) {
+    console.log("Error permiting user", error);
     return false;
   } finally {
     if (conn) {
@@ -158,10 +159,12 @@ async function handler(id) {
   // first check for cache
   let checkPermit;
   try {
-    checkPermit = JSON.parse(
-      fs.readFileSync(path.join(__dirname, `../cache/${id}.json`), "utf8")
-    );
+    const permitFilepath = path.join(__dirname, `../cache/${id}.json`);
+    // console.log("reading path:",permitFilepath)
+    checkPermit = JSON.parse(fs.readFileSync(permitFilepath, "utf8"));
+    // console.log('permit file read from cache')
   } catch (error) {
+    console.log("permit file not read from cache, attempting to read from db");
     checkPermit = await read(id);
   }
 
@@ -173,6 +176,7 @@ async function handler(id) {
       msg: `*✋ Wait*\n\n Please wait until I will get back to Online, Kindly don't send another message.\n\n _Powered by WhatsBot_`,
     };
   } else if (checkPermit.found && !checkPermit.permit) {
+    // console.log("checkPermit found", checkPermit)
     if (checkPermit.times > 3) {
       return {
         permit: false,

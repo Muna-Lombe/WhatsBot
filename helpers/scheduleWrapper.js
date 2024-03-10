@@ -1,109 +1,20 @@
 const { CronExpressionBuilder, CronValidators } = require("natural-cron");
 const { CronTimeUnit } = require("natural-cron/dist/cjs/interfaces");
 const { validate } = require("node-cron");
-const builder = new CronExpressionBuilder();
+const {
+  validCronWords,
+  convertTo24HourIfExist,
+  isTimeFormat,
+  isDay,
+  isDate,
+  isMonth,
+} = require("./cronUtils");
 
 function buildExpressionFor(naturalLanguageStringArray = []) {
-  const validCronWords = [
-    "every",
-    "at",
-    "on",
-    "for",
-    "during",
-    "minute",
-    "minutes",
-    "hour",
-    "day",
-    "month",
-    "week",
-    "monday",
-    "monday,",
-    "tuesday",
-    "tuesday,",
-    "wednesday",
-    "wednesday,",
-    "thursday",
-    "thursday,",
-    "friday",
-    "friday,",
-    "saturday",
-    "saturday,",
-    "sunday",
-    "sunday,",
-  ];
-  const reg12 =
-    /(1[0-2]|0?[1-9]):([0-5][0-9])\s?(AM|PM|am|pm)?|([01]?[0-9]|1[0-2])(AM|PM|am|pm)/g;
-
-  const reg24 = /^(?:[01]?[0-9]|2[0-3]):[0-5][0-9]$/g;
-
-  const isTime = (string) => {
-    //regex to include 12 hour time format
-    // eg. 12:00, 12:00 am, 12:00 pm, 12:00am, 12:00pm, 12am, 12pm
-    // this only matches 12:00.
-    // fix: 12:00 am, 12:00 pm, 12:00am, 12:00pm, 12am, 12pm
-
-    const reg1 = new RegExp(`(${reg12.source})|(${reg24.source})`, "g");
-    const timeRegex = new RegExp(reg1.source, reg1.flags);
-    return timeRegex.test(string);
-  };
-  const convertTo24HourIfExist = (string) => {
-    if (isTime(string)) {
-      // console.log(`Check string:
-      // ${string} is format [hour]:[minute][space/am/pm]: ${string.includes(':') && (string.includes('am') || string.includes('pm'))},
-      // ${string} is format [hour][am/pm]: ${new RegExp(/([01]?[0-9]|1[0-2])(AM|PM|am|pm)/i).test(string)}
-      // `)
-
-      if (
-        string.includes(":") &&
-        (string.includes("am") || string.includes("pm"))
-      ) {
-        // console.log('string is format [hour]:[minute][space/am/pm]')
-
-        const time = string.split(":");
-
-        let hour = parseInt(time[0]);
-        let minutes = time[1].trim().slice(0, 2);
-        let amPm =
-          string.includes("am") || string.includes("pm")
-            ? string.slice(-2)
-            : null;
-
-        if (hour > 12) {
-          return `${hour}:${minutes}`;
-        }
-        if (amPm === "am") {
-          return `${hour}:${minutes}`;
-        }
-
-        if (amPm === "pm") {
-          return `${parseInt(hour) + 12}:${minutes}`;
-        }
-      }
-
-      // 12am,
-      // 12pm
-      if (new RegExp(/([01]?[0-9]|1[0-2])(AM|PM|am|pm)/i).test(string)) {
-        // console.log('string is format [hour][am/pm]')
-        let [hour, amPm] = string.split(/(AM|PM|am|pm)/i);
-        // amPm = string.trim().slice(-2);
-
-        if (hour > 12) {
-          return `${hour}:00`;
-        }
-
-        if (amPm === "am") {
-          return `${hour}:00`;
-        }
-
-        if (amPm === "pm") {
-          return `${parseInt(hour) + 12}:00`;
-        }
-      }
-
-      // console.log('string is a time')
-      return string;
-    }
-    return null;
+  const functionToCheckIfSomethingIsACronPart = (arg) => {
+    // sctructure of a cron
+    // [action][target][period][time][day]
+    // eg. every 5 minutes
   };
 
   console.log("naturalLanguageStringArray", naturalLanguageStringArray);
@@ -112,12 +23,27 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
       part = part.toLowerCase();
 
       const newPart = validCronWords.includes(part.toLowerCase())
-        ? part.replace(/,/g, "")
-        : isTime(part)
+        ? part.replace(/[,.]/g, "")
+        : isTimeFormat(part)
         ? convertTo24HourIfExist(part)
         : "";
-      if (isTime(part) && arr[idx - 1] !== "at") {
-        console.log("at time", newPart);
+      if (isMonth(part)) {
+        return part;
+      }
+      if (isDate(part)) {
+        const [day, month, _] = part.split(/[-./ ]/);
+        return `[${day}, ${month}]`;
+      }
+      if (
+        isTimeFormat(part) &&
+        arr[idx - 1] !== "for" &&
+        arr[idx - 1] !== "at" &&
+        arr[idx - 1] !== "every"
+      ) {
+        console.log(`check:
+        is for: ${arr[idx - 1] !== "for"}, 
+        is at: ${arr[idx - 1] !== "at"}, 
+        included 'at' before ${part}`);
         return ["at", newPart];
       }
       return (arr = newPart);
@@ -133,6 +59,27 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
     thursday: 4,
     friday: 5,
     saturday: 6,
+  };
+
+  const monthOfYearMap = {
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12,
+  };
+
+  const matchMonth = (month) => {
+    return Object.keys(monthOfYearMap).filter((key) =>
+      key.includes(month.toLowerCase())
+    )[0];
   };
 
   const expressionTypes = {
@@ -158,8 +105,50 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
 
   console.log("parts", parts);
 
+  // Handle different types of natural language date and time inputs
+  // for example "tomorrow", "Monday", "next week", "next wednesday", "14/02/2022", "14th February 2022"
+  // it should use the date-fns library to convert these into a date object
+  // then use the date object to build the cron expression
+  // then return the cron expression
+
+  const handleDates = (parts) => {
+    const date = new Date();
+
+    if (isDate(parts[0])) {
+      const [day, month, year] = parts[0].split(/[-./ ]/);
+      date.setDate(day);
+      date.setMonth(month);
+      date.setFullYear(year);
+    }
+    if (parts.includes("tomorrow")) {
+      date.setDate(date.getDate() + 1);
+    }
+    if (parts.includes("next")) {
+      if (isDay(parts[parts.indexOf("next") + 1])) {
+        const day = parts[parts.indexOf("next") + 1];
+        date.setDate(date.getDate() + 7);
+      }
+      if (parts.includes("week")) {
+        date.setDate(date.getDate() + 7);
+      }
+      if (parts.includes("month")) {
+        date.setMonth(date.getMonth() + 1);
+      }
+      if (parts.includes("year")) {
+        date.setFullYear(date.getFullYear() + 1);
+      }
+    }
+    if (parts.includes("today")) {
+      date.setDate(date.getDate());
+    }
+
+    return date;
+  };
+
   // Handle different types of natural language inputs
   const chainExpression = () => {
+    const builder = new CronExpressionBuilder();
+
     if (parts.includes("every")) {
       const evryIdx = parts.indexOf("every");
       if (parts.includes("day")) {
@@ -188,32 +177,74 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
           builder.every("minute");
         }
       }
-    } else if (parts.includes("on")) {
+      // if (isTimeFormat(parts[evryIdx + 1])) {
+      //   const time = parts[evryIdx + 1];
+      //   builder.every("day").atTime(time);
+      // }
+    }
+    if (parts.includes("on")) {
       let time, days;
-      if (parts.includes("for")) {
-        time = parts[parts.indexOf("for") + 1];
-        days = parts.slice(parts.indexOf("on") + 1, parts.indexOf("for"));
+
+      if (parts.includes("every")) {
+        const everytime = parts[parts.indexOf("every") + 1];
+        const everydays = parts
+          .slice(parts.indexOf("on") + 1)
+          .filter((day) => isDay(day));
+
+        builder
+          .atTime(everytime)
+          .onWeekDays(everydays.map((day) => dayOfWeekMap[day.toLowerCase()]));
       }
-      if (parts.includes("at")) {
-        time = parts[parts.indexOf("at") + 1];
-        days = parts.slice(parts.indexOf("on") + 1, parts.indexOf("at"));
+      if (parts.includes("for") || parts.includes("at")) {
+        if (parts.includes("for")) {
+          time = parts[parts.indexOf("for") + 1];
+          days = parts
+            .slice(parts.indexOf("on") + 1)
+            .filter((day) => isDay(day));
+        }
+        if (parts.includes("at")) {
+          time = parts[parts.indexOf("at") + 1];
+          days = parts
+            .slice(parts.indexOf("on") + 1)
+            .filter((day) => isDay(day));
+        }
+
+        // console.log('days', days);
+        builder.atTime(time);
+        days.length > 1 &&
+          builder.onWeekDays(
+            days.map((day) => dayOfWeekMap[day.toLowerCase()])
+          );
       }
 
-      // console.log('days', days);
-      builder
-        .atTime(time)
-        .onWeekDays(days.map((day) => dayOfWeekMap[day.toLowerCase()]));
-    } else if (parts.includes("during")) {
+      try {
+        if (Array.isArray(JSON.parse(parts[parts.indexOf("on") + 1]))) {
+          const [day, month] = JSON.parse(parts[parts.indexOf("on") + 1]);
+          builder
+            .onDaysOfMonth([parseInt(day)])
+            .duringMonths([parseInt(month)]);
+        }
+      } catch (error) {}
+    }
+    if (parts.includes("during")) {
       const time = parts[parts.indexOf("at") + 1];
-      const months = parts.slice(parts.indexOf("during") + 1);
+      const months = parts
+        .slice(parts.indexOf("during") + 1)
+        .map((month) =>
+          isNaN(month) ? monthOfYearMap[matchMonth(month)] : parseInt(month)
+        );
       builder.atTime(time).duringMonths(months);
     }
 
+    // console.log("builder: ", builder)
     // Compile and return the cron expression
     return builder.compile();
   };
   try {
     const expression = chainExpression();
+    if (!validate(expression)) {
+      throw new Error("expession is not valid: " + expression);
+    }
     return expression;
   } catch (error) {
     console.error(`Error converting to cron: ${error.message}`);

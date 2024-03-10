@@ -1,5 +1,6 @@
 //jshint esversion:8
 const weatherjs = require("weather-js");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function fetchweather(query) {
   const weatherfind = new Promise((resolve, reject) => {
@@ -16,28 +17,34 @@ async function fetchweather(query) {
 
 const execute = async (client, msg, args) => {
   msg.delete(true);
+
   var data = await fetchweather(args.join(" "));
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` + "```Something Unexpected Happened to fetch Weather```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Something Unexpected Happened to fetch Weather```"
+      )
     );
   } else {
     var weather = data[0];
     await client.sendMessage(
       msg.to,
-      `*Today's Weather at ${weather.location.name}*\n` +
-        "```" +
-        weather.current.skytext +
-        " (" +
-        weather.current.temperature +
-        "°C)```\n*Feelslike:* " +
-        "```" +
-        weather.current.feelslike +
-        "°C```\n*Humidity:* " +
-        "```" +
-        weather.current.humidity +
-        "```"
+      botMsg(
+        `*Today's Weather at ${weather.location.name}*\n` +
+          "```" +
+          weather.current.skytext +
+          " (" +
+          weather.current.temperature +
+          "°C)```\n*Feelslike:* " +
+          "```" +
+          weather.current.feelslike +
+          "°C```\n*Humidity:* " +
+          "```" +
+          weather.current.humidity +
+          "```"
+      )
     );
   }
 };

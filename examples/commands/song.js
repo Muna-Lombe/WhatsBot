@@ -2,11 +2,12 @@
 const fs = require("fs");
 const path = require("path");
 const { search } = require("../../helpers/song");
+const { botMsg } = require("../../helpers/messageUtils");
 
 const execute = async (client, msg, args) => {
   msg.delete(true);
   let getdata = await search(args.join(" "));
-  let sendmessage = await client.sendMessage(msg.to, getdata.content); // have to grab the message ID
+  let sendmessage = await client.sendMessage(msg.to, botMsg(getdata.content)); // have to grab the message ID
   if (getdata.status) {
     fs.writeFileSync(
       path.join(__dirname, `../cache/song~${sendmessage.id.id}.json`),

@@ -1,5 +1,6 @@
 //jshint esversion:8
 const dictionary = require("ud-api");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function ud(term) {
   try {
@@ -15,21 +16,25 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Something Unexpected Happened while Lookup on Urban Dictionary```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Something Unexpected Happened while Lookup on Urban Dictionary```"
+      )
     );
   } else {
     await client.sendMessage(
       msg.to,
-      "*Term:* ```" +
-        args.join(" ") +
-        "```\n\n" +
-        "*Definition:* ```" +
-        data[0].definition +
-        "```\n\n" +
-        "*Example:* ```" +
-        data[0].example +
-        "```"
+      botMsg(
+        "*Term:* ```" +
+          args.join(" ") +
+          "```\n\n" +
+          "*Definition:* ```" +
+          data[0].definition +
+          "```\n\n" +
+          "*Example:* ```" +
+          data[0].example +
+          "```"
+      )
     );
   }
 };

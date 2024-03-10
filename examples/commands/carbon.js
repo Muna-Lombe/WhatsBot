@@ -3,6 +3,7 @@
 //TODO: fix it
 const { MessageMedia } = require("whatsapp-web.js");
 const axios = require("axios");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function carbon(text) {
   let respoimage = await axios
@@ -39,16 +40,19 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Something Unexpected Happened to create the Carbon.```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Something Unexpected Happened to create the Carbon.```"
+      )
     );
   } else {
     await client.sendMessage(
       msg.to,
       new MessageMedia(data.mimetype, data.data, data.filename),
       {
-        caption:
-          `Carbon for 👇\n` + "```" + msg.body.replace("!carbon ", "") + "```",
+        caption: botMsg(
+          `Carbon for 👇\n` + "```" + msg.body.replace("!carbon ", "") + "```"
+        ),
       }
     );
   }

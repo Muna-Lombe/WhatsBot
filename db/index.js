@@ -6,17 +6,43 @@ const redisClient = redis.createClient();
 const fs = require("fs");
 const path = require("path");
 
-module.exports = async (collection) => {
-  //setup redis db
-
-  async function connectToFS() {
-    const fsClient = new FsConnection("whatsbot", collection);
-
+/**
+ *
+ * @param {*} collection the name if the collection in the database.
+ * @returns '{conn,coll}' - An object with conn and coll properties.
+ */
+module.exports = async function (collection) {
+  function getCollection(conn) {
     return {
-      conn: fsClient,
-      coll: fsClient.setCollection(),
+      create: () => conn.create(),
+      read: () => conn.read(),
+      update: () => conn.update(),
+      delete: () => conn.delete(),
     };
   }
+  /**
+   *
+   * @returns '{conn,coll}' - An object with conn and coll properties.
+   */
+  async function connectToFS() {
+    const fsClient = new FsConnection("whatsbot", collection);
+    return {
+      conn: fsClient,
+      /**
+       * @type {FsConnection}
+       * @prop {function} create - Create a new record in the collection.
+       * @prop {function} read - Read data from the collection.
+       * @prop {function} update - Update a record in the collection.
+       * @prop {function} delete - Delete a record from the collection.
+       */
+      coll: getCollection(fsClient),
+    };
+  }
+
+  /**
+   *
+   * @returns '{conn,coll}' - An object with conn and coll properties.
+   */
   async function connectToRedis() {
     // redisClient.on("error", (error) => {
     //   console.error("Redis error:", error);
@@ -24,9 +50,21 @@ module.exports = async (collection) => {
     const redisClient = new RedisConnection("whatsbot", collection);
     return {
       conn: redisClient,
-      coll: redisClient.setCollection(),
+      /**
+       * @type {RedisConnection}
+       * @property {function} create - Create a new record in the collection.
+       * @property {function} read - Read data from the collection.
+       * @property {function} update - Update a record in the collection.
+       * @property {function} delete - Delete a record from the collection.
+       */
+      coll: getCollection(redisClient),
     };
   }
+
+  /**
+   *
+   * @returns '{conn,coll}' - An object with conn and coll properties.
+   */
   async function connectToMongoDB() {
     try {
       // let conn = await MongoClient.connect(mongodb_url, {
@@ -36,6 +74,13 @@ module.exports = async (collection) => {
       let conn = new MongoConnection(mongodb_url, "whatsbot", collection);
       return {
         conn,
+        /**
+         * @type {MongoCollection}
+         * @property {function} create - Create a new record in the collection.
+         * @property {function} read - Read data from the collection.
+         * @property {function} update - Update a record in the collection.
+         * @property {function} delete - Delete a record from the collection.
+         */
         coll: conn.collection, //.db("whatsbot").collection(collection),
       };
     } catch (e) {
@@ -121,20 +166,6 @@ class RedisConnection {
     // const { data, datalist, idx } = await this.read(keys)
 
     await this.client.del(keys);
-  }
-
-  /**
-   * Set the collection to use.
-   *
-   * @returns {object} - An object with create, read, update, and delete methods.
-   */
-  setCollection() {
-    return {
-      create: this.create,
-      read: this.read,
-      update: this.update,
-      delete: this.delete,
-    };
   }
 
   /**
@@ -239,12 +270,20 @@ class MongoConnection {
  * @param {string} db_name - The name of the database.
  */
 class FsConnection {
+  #collection;
+  #db_name;
+
   constructor(db_name, collection_name) {
-    this.db_name = db_name;
-    this.collection = collection_name;
+    this.#db_name = db_name;
+    this.#collection = collection_name;
 
     // initialze
-    fs.writeFileSync(this._get_file_path(collection_name), JSON.stringify([]));
+    if (!fs.existsSync(this.#_get_file_path(collection_name))) {
+      fs.writeFileSync(
+        this.#_get_file_path(collection_name),
+        JSON.stringify([])
+      );
+    }
   }
 
   /**
@@ -253,15 +292,15 @@ class FsConnection {
    * @param {string} collection_name - The name of the collection.
    * @returns {string} The file path.
    */
-  _get_file_path(collection_name = this.collection) {
+  #_get_file_path(collection_name = this.#collection) {
     const basepath =
       "/home/muna/code/Muna-Lombe/tutorials/javascript/console-apps/whatsapp/using_puppeteer/WhatsBot/db/persisted";
 
-    return path.join(basepath, `/${this.db_name}_${collection_name}.json`);
+    return path.join(basepath, `/${this.#db_name}_${collection_name}.json`);
   }
 
   close() {
-    return fs.close();
+    // return fs.close();
   }
 
   /**
@@ -272,7 +311,7 @@ class FsConnection {
    * @returns {void}
    */
   create(data) {
-    const file_path = this._get_file_path(key);
+    const file_path = this.#_get_file_path();
     const { datalist } = this.read();
     datalist.push(data);
 
@@ -286,7 +325,7 @@ class FsConnection {
    * @returns {json} The list of records.
    */
   read(key) {
-    const file_path = this._get_file_path();
+    const file_path = this.#_get_file_path();
     try {
       const datalist = JSON.parse(fs.readFileSync(file_path, "utf8"));
 
@@ -306,13 +345,12 @@ class FsConnection {
   /**
    * Update a record in the collection.
    *
-   * @param {string} collection_name - The name of the collection.
-   * @param {object} query - The query to find the record.
-   * @param {object} data - The updated data.
+   * @param {object} - The key to update.
+   * @param {object} - The new value to set.
    * @returns {void}
    */
   update(key, value) {
-    const file_path = this._get_file_path();
+    const file_path = this.#_get_file_path();
     const { data, datalist, idx } = this.read(key);
     const updated_data = {
       ...data,
@@ -323,19 +361,6 @@ class FsConnection {
   }
 
   /**
-   * Set the collection to use.
-   *
-   * @returns {object} - An object with create, read, update, and delete methods.
-   */
-  setCollection() {
-    return {
-      create: this.create,
-      read: this.read,
-      update: this.update,
-      delete: this.delete,
-    };
-  }
-  /**
    * Delete a record from the collection.
    *
    * @param {string} collection_name - The name of the collection.
@@ -343,7 +368,7 @@ class FsConnection {
    * @returns {void}
    */
   delete(collection_name, query) {
-    const file_path = this._get_file_path(collection_name);
+    const file_path = this.#_get_file_path(collection_name);
     const existing_data = this.read(collection_name);
     const updated_data = existing_data.filter((item) => item !== query);
     fs.writeFileSync(file_path, JSON.stringify(updated_data));

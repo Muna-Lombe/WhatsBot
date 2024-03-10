@@ -1,6 +1,7 @@
 //jshint esversion:8
 const { MessageMedia } = require("whatsapp-web.js");
 const axios = require("axios");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function downloadzip(url, name) {
   try {
@@ -68,14 +69,19 @@ const execute = async (client, msg, args) => {
     if (data.data.status) {
       await client.sendMessage(
         msg.to,
-        new MessageMedia(data.data.mimetype, data.data.data, data.data.filename)
+        new MessageMedia(
+          data.data.mimetype,
+          data.data.data,
+          data.data.filename
+        ),
+        { caption: botmark }
       );
     }
-    await client.sendMessage(msg.to, data.msg);
+    await client.sendMessage(msg.to, botMsg(data.msg));
   } else {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` + "```" + data.msg + "```"
+      botMsg(`🙇‍♂️ *Error*\n\n` + "```" + data.msg + "```")
     );
   }
 };

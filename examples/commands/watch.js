@@ -2,6 +2,7 @@
 // Coded by Sumanjay (https://github.com/cyberboysumanjay)
 const { MessageMedia } = require("whatsapp-web.js");
 const axios = require("axios");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function getDetails(title) {
   let mainconfig = {
@@ -62,20 +63,24 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Something Unexpected Happened while fetching Movie/TV Show Details.```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Something Unexpected Happened while fetching Movie/TV Show Details.```"
+      )
     );
   } else if (data == "No Results") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *No Results Found!*\n\n` +
-        "```Please check the name of Movie/TV Show you have entered.```"
+      botMsg(
+        `🙇‍♂️ *No Results Found!*\n\n` +
+          "```Please check the name of Movie/TV Show you have entered.```"
+      )
     );
   } else {
     await client.sendMessage(
       msg.to,
       new MessageMedia(data.mimetype, data.thumbdata, data.filename),
-      { caption: data.caption }
+      { caption: botMsg(data.caption) }
     );
   }
 };

@@ -1,12 +1,17 @@
 //jshint esversion:8
-const config = require("../../config");
-const pmpermit = require("../../helpers/pmpermit");
+const config = require("../config");
+const { botMsg } = require("../helpers/messageUtils");
+const pmpermit = require("../helpers/pmpermit");
 
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   if (config.pmpermit_enabled == "true" && !msg.to.includes("-")) {
     await pmpermit.nopermit(msg.to.split("@")[0]);
     msg.reply(
-      "*⛔ Not Allowed*\n\nYou are not allowed for PM\n\n _Powered by WhatsBot_"
+      botMsg(
+        "*⛔ Not Allowed*\n\nYou are not allowed for PM\n\n _Powered by WhatsBot_"
+      )
     ); // don't change this text without discussion with Tuhin
   }
 };

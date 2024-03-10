@@ -1,5 +1,9 @@
+const { botMsg } = require("../helpers/messageUtils");
+
 //jshint esversion:8
 const execute = async (client, msg, args) => {
+  const botmark = "​";
+
   msg.delete(true);
   let commands = client.commands;
   if (!args.length) {
@@ -19,13 +23,13 @@ const execute = async (client, msg, args) => {
     let help = `${adminHelp}\n${infoHelp}\n${pluginHelp}\n${
       commands.get("help").help
     }`;
-    await client.sendMessage(msg.to, help);
+    await client.sendMessage(msg.to, botMsg(help));
   } else if (commands.has(args[0])) {
-    await client.sendMessage(msg.to, commands.get(args[0]).help);
+    await client.sendMessage(msg.to, botMsg(commands.get(args[0]).help));
   } else {
     await client.sendMessage(
       msg.to,
-      `No command with the name *${args[0]}*...`
+      botMsg(`No command with the name *${args[0]}*...`)
     );
   }
 };

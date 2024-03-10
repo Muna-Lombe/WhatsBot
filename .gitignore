@@ -24,3 +24,4 @@ session-output
 session.secure
 utilities/
 .vscode/
+db/persisted/*

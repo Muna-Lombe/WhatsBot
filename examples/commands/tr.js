@@ -2,6 +2,7 @@
 const translate = require("@iamtraction/google-translate");
 const config = require("../../config");
 const tr_languages = require("../../helpers/tr_languages");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function translator(langReq, text) {
   let lang;
@@ -27,6 +28,7 @@ async function translator(langReq, text) {
 
 const execute = async (client, msg, args) => {
   let data;
+
   msg.delete(true);
   if (msg.hasQuotedMsg) {
     let quotedMsg = await msg.getQuotedMessage();
@@ -40,19 +42,23 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` + "```Something Unexpected Happened while translate```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` + "```Something Unexpected Happened while translate```"
+      )
     );
   } else {
     await client.sendMessage(
       msg.to,
-      `*Original (${data.ori_lang}) :* ` +
-        "```" +
-        data.original +
-        "```\n\n" +
-        `*Translation (${data.trans_lang}) :* ` +
-        "```" +
-        data.translated +
-        "```"
+      botMsg(
+        `*Original (${data.ori_lang}) :* ` +
+          "```" +
+          data.original +
+          "```\n\n" +
+          `*Translation (${data.trans_lang}) :* ` +
+          "```" +
+          data.translated +
+          "```"
+      )
     );
   }
 };

@@ -1,12 +1,24 @@
 //jshint esversion:8
-const config = require("../../config");
-const pmpermit = require("../../helpers/pmpermit");
+const config = require("../config");
+const { botMsg } = require("../helpers/messageUtils");
+const pmpermit = require("../helpers/pmpermit");
 
 const execute = async (client, msg) => {
+  const botmark = "​";
+
   if (config.pmpermit_enabled == "true" && !msg.to.includes("-")) {
-    await pmpermit.permit(msg.to.split("@")[0]);
-    msg.reply(
-      "*✅ Allowed*\n\nYou are allowed for PM\n\n _Powered by WhatsBot_"
+    const userAllowed = await pmpermit.permit(msg.to.split("@")[0]);
+    if (userAllowed) {
+      return msg.reply(
+        botMsg(
+          "*✅ Allowed*\n\nYou are allowed for PM\n\n _Powered by WhatsBot_"
+        )
+      );
+    }
+    return msg.reply(
+      botMsg(
+        "*❌ Restricted*\n\nYou are not allowed for perform this action!\n\n _Powered by WhatsBot_"
+      )
     );
   }
 };

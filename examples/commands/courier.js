@@ -2,6 +2,7 @@
 // Coded by Sumanjay (https://github.com/cyberboysumanjay)
 const { MessageMedia } = require("whatsapp-web.js");
 const axios = require("axios");
+const { botMsg } = require("../../helpers/messageUtils");
 
 async function getTrackingDetails(trackingService, trackingNumber) {
   let mainconfig = {
@@ -51,13 +52,15 @@ const execute = async (client, msg, args) => {
   if (data == "error") {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Error*\n\n` +
-        "```Something unexpected happened while fetching the courier details.```"
+      botMsg(
+        `🙇‍♂️ *Error*\n\n` +
+          "```Something unexpected happened while fetching the courier details.```"
+      )
     );
   } else {
     await client.sendMessage(
       msg.to,
-      `🙇‍♂️ *Courier/Shipment Details*\n\n` + "```" + data.status + "```"
+      botMsg(`🙇‍♂️ *Courier/Shipment Details*\n\n` + "```" + data.status + "```")
     );
   }
 };

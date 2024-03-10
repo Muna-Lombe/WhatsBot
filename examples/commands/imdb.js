@@ -2,9 +2,12 @@ const axios = require("axios");
 const { MessageMedia } = require("whatsapp-web.js");
 const formatNum = require("../../helpers/formatNum");
 const processImage = require("../../helpers/processImage");
+const { botMsg } = require("../../helpers/messageUtils");
 const imdb_host = `https://imdb-api.tprojects.workers.dev`; // no slash at the end
 
 const execute = async (client, msg, args) => {
+  const botmark = "​";
+
   try {
     msg.delete(true);
     let query = args.join(" ");
@@ -31,11 +34,11 @@ const execute = async (client, msg, args) => {
     await client.sendMessage(
       msg.to,
       new MessageMedia(image.mimetype, image.data, `${result.title}.jpg`),
-      { caption: text }
+      { caption: botMsg(text) }
     );
   } catch (error) {
     let messagetosend = `Something went wrong to get this content\n\n${error?.message}`;
-    await client.sendMessage(msg.to, messagetosend);
+    await client.sendMessage(msg.to, botMsg(messagetosend));
   }
 };
 
