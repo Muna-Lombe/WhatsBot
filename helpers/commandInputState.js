@@ -19,67 +19,93 @@ function inputStore(command) {
   return state["store"][command];
 }
 
-function readingCommand(command, comState, state, store) {
+function readingCommand(command, comState, state, store, _stateBasedCommand) {
   state["args"].shift();
-  const staleState = comState[command];
-  state["args"].unshift(...(staleState?.args || ""));
-  comState.lastCommand = command;
-  comState[command] = { ...staleState, ...state };
-  if (store) {
-    if (store.complete) {
-      const { complete, ...rest } = store;
-      comState["store"] = { [command]: rest };
+
+  if (_stateBasedCommand !== "reset") {
+    const staleState = comState[command];
+    state["args"].unshift(...(staleState?.args || ""));
+    comState.lastCommand = command;
+
+    comState[command] = { ...staleState, ...state };
+    if (store) {
+      if (store.complete) {
+        const { complete, ...rest } = store;
+        comState["store"] = { [command]: rest };
+      } else {
+        comState["store"] = {
+          [command]: { ...comState?.store?.[command], ...store },
+        };
+      }
     } else {
-      comState["store"] = {
-        [command]: { ...comState?.store?.[command], ...store },
-      };
+      comState["store"] = { ...comState.store };
     }
   } else {
-    comState["store"] = { ...comState.store };
+    comState.lastCommand = command;
+    comState[command] = state;
+    comState["store"] = {};
   }
-  console.log("red", comState);
+  // console.log("red", comState);
 
   fs.writeFileSync("./cache/commandInput.json", JSON.stringify(comState));
 }
 
-function confirmingCommand(command, comState, state, store) {
-  const staleState = comState[command];
-  comState.lastCommand = command;
-  comState[command] = { ...state };
-  if (store) {
-    if (store.complete) {
-      const { complete, ...rest } = store;
-      comState["store"] = { [command]: rest };
+function confirmingCommand(
+  command,
+  comState,
+  state,
+  store,
+  _stateBasedCommand
+) {
+  if (_stateBasedCommand !== "reset") {
+    const staleState = comState[command];
+    comState.lastCommand = command;
+    comState[command] = { ...staleState, ...state };
+    if (store) {
+      if (store.complete) {
+        const { complete, ...rest } = store;
+        comState["store"] = { [command]: rest };
+      } else {
+        comState["store"] = {
+          [command]: { ...comState?.store?.[command], ...store },
+        };
+      }
     } else {
-      comState["store"] = {
-        [command]: { ...comState?.store?.[command], ...store },
-      };
+      comState["store"] = { ...comState.store };
     }
   } else {
-    comState["store"] = { ...comState.store };
+    comState.lastCommand = command;
+    comState[command] = state;
+    comState["store"] = {};
   }
-  console.log("cfm", comState);
+  // console.log("cfm", comState);
 
   fs.writeFileSync("./cache/commandInput.json", JSON.stringify(comState));
 }
 
-function updatingCommand(command, comState, state, store) {
-  const staleState = comState[command];
-  comState.lastCommand = command;
-  comState[command] = { ...staleState, ...state };
-  if (store) {
-    if (store.complete) {
-      const { complete, ...rest } = store;
-      comState["store"] = { [command]: rest };
+function updatingCommand(command, comState, state, store, _stateBasedCommand) {
+  if (_stateBasedCommand !== "reset") {
+    const staleState = comState[command];
+    comState.lastCommand = command;
+    comState[command] = { ...staleState, ...state };
+    if (store) {
+      if (store.complete) {
+        const { complete, ...rest } = store;
+        comState["store"] = { [command]: rest };
+      } else {
+        comState["store"] = {
+          [command]: { ...comState?.store?.[command], ...store },
+        };
+      }
     } else {
-      comState["store"] = {
-        [command]: { ...comState?.store?.[command], ...store },
-      };
+      comState["store"] = { ...comState.store };
     }
   } else {
-    comState["store"] = { ...comState.store };
+    comState.lastCommand = command;
+    comState[command] = state;
+    comState["store"] = {};
   }
-  console.log("upd", comState);
+  // console.log("upd", comState);
 
   fs.writeFileSync("./cache/commandInput.json", JSON.stringify(comState));
 }
@@ -87,19 +113,23 @@ function updatingCommand(command, comState, state, store) {
 function updateInputState(
   command,
   state = { inputState: "reading input", isIncomming: true, args: ["arg1"] },
-  store
+  store,
+  _stateBasedCommand
 ) {
   // console.log("state: " , state, store)
   const comState = commandInputState();
 
   if (state.inputState === INPUTSTATETYPES["reading command"]) {
-    readingCommand(command, comState, state, store);
+    readingCommand(command, comState, state, store, _stateBasedCommand);
+  }
+  if (state.inputState === INPUTSTATETYPES["waiting for command"]) {
+    readingCommand(command, comState, state, store, _stateBasedCommand);
   }
   if (state.inputState === INPUTSTATETYPES["confirming command"]) {
-    confirmingCommand(command, comState, state, store);
+    confirmingCommand(command, comState, state, store, _stateBasedCommand);
   }
   if (state.inputState === INPUTSTATETYPES["updating command"]) {
-    updatingCommand(command, comState, state, store);
+    updatingCommand(command, comState, state, store, _stateBasedCommand);
   }
 }
 

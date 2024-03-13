@@ -5,8 +5,8 @@ const getContactIdByName = (contactName) => {
   };
 
   return (
-    contacts[contactName.toLowerCase()].replace(/\D/g, "").replace(/^7/, "7") +
-    "@c.us"
+    contacts[contactName.toLowerCase()]?.replace(/\D/g, "").replace(/^7/, "7") +
+      "@c.us" || null
   );
 };
 

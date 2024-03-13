@@ -1,4 +1,5 @@
 const INPUTSTATETYPES = {
+  ["waiting for command"]: "WAITINGCOMMAND",
   ["reading command"]: "READINGCOMMAND",
   ["confirming command"]: "COMFIRMINGCOMMAND",
   ["updating command"]: "UPDATINGCOMMAND",

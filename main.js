@@ -70,7 +70,10 @@ client.on("auth_failure", () => {
 client.on("ready", async () => {
   console.log("Bot has been started");
   try {
-    await logger(client, "Bot has been started");
+    await logger(
+      client,
+      "Bot has been started!\n\nGet started by sending `!help` to see what commands are available."
+    );
   } catch (err) {
     console.log(err);
   }
@@ -153,14 +156,20 @@ client.on("message_create", async (msg) => {
     !msg.body.startsWith(botmark)
   ) {
     console.log("is message incoming: ", incommingInput().isIncomming);
-    const args = msg.body.split(" ");
+
+    const args = msg.body.split(" ").map((arg) => arg.toLowerCase());
+
     const input = incommingInput();
-    if (input.inputState === INPUTSTATETYPES["reading command"]) {
-      console.log(INPUTSTATETYPES["reading command"]);
+
+    if (
+      input.inputState === INPUTSTATETYPES["reading command"] ||
+      input.inputState === INPUTSTATETYPES["waiting for command"]
+    ) {
+      console.log(input.inputState);
       // updateInputState("schedule", INPUTSTATETYPES["reading command"], false);
       return client.commands
         .get("schedule")
-        .execute(client, msg, [INPUTSTATETYPES["reading command"], ...args]);
+        .execute(client, msg, [input.inputState, ...args]);
     }
     if (input.inputState === INPUTSTATETYPES["confirming command"]) {
       console.log(INPUTSTATETYPES["confirming command"]);

@@ -14,10 +14,10 @@ const path = require("path");
 module.exports = async function (collection) {
   function getCollection(conn) {
     return {
-      create: () => conn.create(),
-      read: () => conn.read(),
-      update: () => conn.update(),
-      delete: () => conn.delete(),
+      create: (data) => conn.create(data),
+      read: (key) => conn.read(key),
+      update: (key, value) => conn.update(key, value),
+      delete: (key) => conn.delete(key),
     };
   }
   /**
@@ -246,7 +246,9 @@ class MongoConnection {
 
   update(key, value) {
     if (this.collection) {
-      this.collection.updateOne(key, value);
+      this.collection.updateOne(key, {
+        $set: { [Object.keys(value)[0]]: value },
+      });
     }
   }
 
@@ -311,9 +313,11 @@ class FsConnection {
    * @returns {void}
    */
   create(data) {
+    console.log("log this data", data);
     const file_path = this.#_get_file_path();
     const { datalist } = this.read();
     datalist.push(data);
+    console.log("log this datalist", datalist);
 
     fs.writeFileSync(file_path, JSON.stringify(datalist));
   }
@@ -328,16 +332,19 @@ class FsConnection {
     const file_path = this.#_get_file_path();
     try {
       const datalist = JSON.parse(fs.readFileSync(file_path, "utf8"));
-
+      console.log("reading datalist", datalist);
       if (!key) return { datalist };
 
       let idx;
+      const marker = Object.keys(key)[0];
+
       const data = datalist.filter(
-        (el, x) => el.number === key.number && (idx = x)
+        (el, x) => el[marker] === key[marker] && (idx = x)
       );
 
       return { data, datalist, idx };
     } catch (error) {
+      console.log("error", error);
       return [];
     }
   }
@@ -364,13 +371,16 @@ class FsConnection {
    * Delete a record from the collection.
    *
    * @param {string} collection_name - The name of the collection.
-   * @param {object} query - The query to find the record to delete.
+   * @param {object} key - The key to find the record to delete.
    * @returns {void}
    */
-  delete(collection_name, query) {
-    const file_path = this.#_get_file_path(collection_name);
-    const existing_data = this.read(collection_name);
-    const updated_data = existing_data.filter((item) => item !== query);
-    fs.writeFileSync(file_path, JSON.stringify(updated_data));
+  delete(key) {
+    const file_path = this.#_get_file_path(this.#collection);
+    const existing_data = this.read(this.#collection);
+    const marker = Object.keys(key)[0];
+    const updated_data = existing_data.filter(
+      (item) => item[marker] !== key[marker]
+    );
+    fs.unlinkSync(file_path);
   }
 }

@@ -8,18 +8,59 @@ const {
   isDay,
   isDate,
   isMonth,
+  format,
 } = require("./cronUtils");
 
-function buildExpressionFor(naturalLanguageStringArray = []) {
-  const functionToCheckIfSomethingIsACronPart = (arg) => {
-    // sctructure of a cron
-    // [action][target][period][time][day]
-    // eg. every 5 minutes
-  };
+// // Define mappings for natural language to cron values
+const dayOfWeekMap = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
 
-  console.log("naturalLanguageStringArray", naturalLanguageStringArray);
-  const parts = naturalLanguageStringArray
-    .flatMap((part, idx, arr) => {
+const monthOfYearMap = {
+  january: 1,
+  february: 2,
+  march: 3,
+  april: 4,
+  may: 5,
+  june: 6,
+  july: 7,
+  august: 8,
+  september: 9,
+  october: 10,
+  november: 11,
+  december: 12,
+};
+
+const expressionTypes = {
+  minutes: "atMinutes",
+  hours: "atHours",
+  every: ["every", "everyX"],
+  time: "atTime",
+  "every day": "atTime",
+  day: "atTime",
+  "monday-friday": "onWeekdays",
+  "monday to friday": "onWeekdays",
+  "from monday to friday": "onWeekdays",
+  on: "onDaysOfMonth",
+};
+
+const cronTimeMap = {
+  minutes: "Minute",
+  hours: "Hour",
+  days: "DayOfMonth",
+  months: "Month",
+  weeks: "DayOfWeek",
+};
+
+const extractParts = (partful) => {
+  return partful
+    ?.flatMap((part, idx, arr) => {
       part = part.toLowerCase();
 
       const newPart = validCronWords.includes(part.toLowerCase())
@@ -27,11 +68,16 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
         : isTimeFormat(part)
         ? convertTo24HourIfExist(part)
         : "";
+      if (part.includes("-") && isDay(part.split("-")[0])) {
+        const [from, to] = part.split("-");
+        return ["from", from, "to", to];
+      }
       if (isMonth(part)) {
         return part;
       }
       if (isDate(part)) {
-        const [day, month, _] = part.split(/[-./ ]/);
+        const date = isDate(part);
+        const [day, month, _] = [date.getDate(), date.getMonth() + 1];
         return `[${day}, ${month}]`;
       }
       if (
@@ -49,59 +95,51 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
       return (arr = newPart);
     })
     .filter((part) => part?.length > 0);
+};
 
-  // // Define mappings for natural language to cron values
-  const dayOfWeekMap = {
-    sunday: 0,
-    monday: 1,
-    tuesday: 2,
-    wednesday: 3,
-    thursday: 4,
-    friday: 5,
-    saturday: 6,
-  };
+const matchMonth = (month) => {
+  return Object.keys(monthOfYearMap).filter((key) =>
+    key.includes(month.toLowerCase())
+  )[0];
+};
 
-  const monthOfYearMap = {
-    january: 1,
-    february: 2,
-    march: 3,
-    april: 4,
-    may: 5,
-    june: 6,
-    july: 7,
-    august: 8,
-    september: 9,
-    october: 10,
-    november: 11,
-    december: 12,
-  };
+const handleDates = (parts) => {
+  const date = new Date();
 
-  const matchMonth = (month) => {
-    return Object.keys(monthOfYearMap).filter((key) =>
-      key.includes(month.toLowerCase())
-    )[0];
-  };
+  if (isDate(parts[0])) {
+    const [day, month, year] = parts[0].split(/[-./ ]/);
+    date.setDate(day);
+    date.setMonth(month);
+    date.setFullYear(year);
+  }
+  if (parts.includes("tomorrow")) {
+    date.setDate(date.getDate() + 1);
+  }
+  if (parts.includes("next")) {
+    if (isDay(parts[parts.indexOf("next") + 1])) {
+      const day = parts[parts.indexOf("next") + 1];
+      date.setDate(date.getDate() + 7);
+    }
+    if (parts.includes("week")) {
+      date.setDate(date.getDate() + 7);
+    }
+    if (parts.includes("month")) {
+      date.setMonth(date.getMonth() + 1);
+    }
+    if (parts.includes("year")) {
+      date.setFullYear(date.getFullYear() + 1);
+    }
+  }
+  if (parts.includes("today")) {
+    date.setDate(date.getDate());
+  }
 
-  const expressionTypes = {
-    minutes: "atMinutes",
-    hours: "atHours",
-    every: ["every", "everyX"],
-    time: "atTime",
-    "every day": "atTime",
-    day: "atTime",
-    "monday-friday": "onWeekdays",
-    "monday to friday": "onWeekdays",
-    "from monday to friday": "onWeekdays",
-    on: "onDaysOfMonth",
-  };
+  return date;
+};
 
-  const cronTimeMap = {
-    minutes: "Minute",
-    hours: "Hour",
-    days: "DayOfMonth",
-    months: "Month",
-    weeks: "DayOfWeek",
-  };
+function buildExpressionFor(naturalLanguageStringArray = []) {
+  console.log("naturalLanguageStringArray", naturalLanguageStringArray);
+  const parts = extractParts(naturalLanguageStringArray);
 
   console.log("parts", parts);
 
@@ -111,42 +149,8 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
   // then use the date object to build the cron expression
   // then return the cron expression
 
-  const handleDates = (parts) => {
-    const date = new Date();
-
-    if (isDate(parts[0])) {
-      const [day, month, year] = parts[0].split(/[-./ ]/);
-      date.setDate(day);
-      date.setMonth(month);
-      date.setFullYear(year);
-    }
-    if (parts.includes("tomorrow")) {
-      date.setDate(date.getDate() + 1);
-    }
-    if (parts.includes("next")) {
-      if (isDay(parts[parts.indexOf("next") + 1])) {
-        const day = parts[parts.indexOf("next") + 1];
-        date.setDate(date.getDate() + 7);
-      }
-      if (parts.includes("week")) {
-        date.setDate(date.getDate() + 7);
-      }
-      if (parts.includes("month")) {
-        date.setMonth(date.getMonth() + 1);
-      }
-      if (parts.includes("year")) {
-        date.setFullYear(date.getFullYear() + 1);
-      }
-    }
-    if (parts.includes("today")) {
-      date.setDate(date.getDate());
-    }
-
-    return date;
-  };
-
   // Handle different types of natural language inputs
-  const chainExpression = () => {
+  const chainExpression = (parts, dowMap, moyMap, match) => {
     const builder = new CronExpressionBuilder();
 
     if (parts.includes("every")) {
@@ -155,7 +159,7 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
         const time = parts[parts.indexOf("at") + 1];
         builder.every("day").atTime(time);
       }
-      if (dayOfWeekMap[parts[parts.indexOf("every") + 1]]) {
+      if (dowMap[parts[parts.indexOf("every") + 1]]) {
         const time = parts[parts.indexOf("at") + 1];
         const days = parts.slice(
           parts.indexOf("every") + 1,
@@ -164,7 +168,7 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
         // console.log(days)
         builder
           .atTime(time)
-          .onWeekDays(days.map((day) => dayOfWeekMap[day.toLowerCase()]));
+          .onWeekDays(days.map((day) => dowMap[day.toLowerCase()]));
       }
       if (parts.includes("hour")) {
         builder.every("hour");
@@ -182,7 +186,27 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
       //   builder.every("day").atTime(time);
       // }
     }
-    if (parts.includes("on")) {
+    if (parts.includes("from") && parts.includes("to")) {
+      const buildPeriod = (arr) => {
+        arr.sort((a, b) => a - b);
+        const sr = [];
+        for (let i = arr[0] + 1; i < arr[1]; i++) {
+          sr.push(i);
+        }
+        return [arr[0]].concat(sr, [arr[1]]);
+      };
+      const [fromIdx, toIdx] = [parts.indexOf("from"), parts.indexOf("to")];
+
+      if (isDay(parts[fromIdx + 1]) && isDay(parts[toIdx + 1])) {
+        const period = [
+          dowMap[format.day(parts[fromIdx + 1]).toLowerCase()],
+          dowMap[format.day(parts[toIdx + 1]).toLowerCase()],
+        ];
+        // console.log("builder",buildPeriod(period))
+        builder.onWeekDays(buildPeriod(period));
+      }
+    }
+    if (parts.includes("on") || parts.includes("for") || parts.includes("at")) {
       let time, days;
 
       if (parts.includes("every")) {
@@ -193,28 +217,24 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
 
         builder
           .atTime(everytime)
-          .onWeekDays(everydays.map((day) => dayOfWeekMap[day.toLowerCase()]));
+          .onWeekDays(everydays.map((day) => dowMap[day.toLowerCase()]));
       }
       if (parts.includes("for") || parts.includes("at")) {
         if (parts.includes("for")) {
           time = parts[parts.indexOf("for") + 1];
-          days = parts
-            .slice(parts.indexOf("on") + 1)
-            .filter((day) => isDay(day));
         }
         if (parts.includes("at")) {
           time = parts[parts.indexOf("at") + 1];
+        }
+        if (parts.includes("on")) {
           days = parts
             .slice(parts.indexOf("on") + 1)
             .filter((day) => isDay(day));
         }
-
         // console.log('days', days);
         builder.atTime(time);
-        days.length > 1 &&
-          builder.onWeekDays(
-            days.map((day) => dayOfWeekMap[day.toLowerCase()])
-          );
+        days?.length > 0 &&
+          builder.onWeekDays(days.map((day) => dowMap[day.toLowerCase()]));
       }
 
       try {
@@ -231,7 +251,7 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
       const months = parts
         .slice(parts.indexOf("during") + 1)
         .map((month) =>
-          isNaN(month) ? monthOfYearMap[matchMonth(month)] : parseInt(month)
+          isNaN(month) ? moyMap[match(month)] : parseInt(month)
         );
       builder.atTime(time).duringMonths(months);
     }
@@ -241,7 +261,12 @@ function buildExpressionFor(naturalLanguageStringArray = []) {
     return builder.compile();
   };
   try {
-    const expression = chainExpression();
+    const expression = chainExpression(
+      parts,
+      dayOfWeekMap,
+      monthOfYearMap,
+      matchMonth
+    );
     if (!validate(expression)) {
       throw new Error("expession is not valid: " + expression);
     }

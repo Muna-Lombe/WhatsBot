@@ -52,6 +52,9 @@ const isDay = (string) => {
   return validDays.includes(string?.toLowerCase());
 };
 
+const isDays = (string) => {
+  return string.split(" ").filter((s) => isDay(s)).length > 1;
+};
 const isDate = (string) => {
   // Should match the following:
   // 2021-10-20
@@ -77,6 +80,15 @@ const isDate = (string) => {
 const isDayDate = (string) => {
   return isDay(string) || isDate(string);
 };
+const isTimePeriod = (string) => {
+  return (
+    string?.includes("-") &&
+    ((isDay(string.split("-")[0]) && isDay(string.split("-")[1])) ||
+      (isTimeFormat(string.split("-")[0]) &&
+        isTimeFormat(string.split("-")[1])) ||
+      (isCronWord(string.split("-")[0]) && isCronWord(string.split("-")[1])))
+  );
+};
 const isPeriod = (string) => {
   return validPeriods.includes(string?.toLowerCase());
 };
@@ -92,11 +104,12 @@ const isMonth = (string) => {
   );
 };
 const isCron = (string) => {
-  if (isTime(string)) return "isTime";
-  if (isDay(string)) return "isDay";
-  if (isDate(string)) return "isDate";
-  if (isPeriod(string)) return "isPeriod";
-  if (isTimeFormat(string)) return "isTimeFormat";
+  if (isTime(string)) return "Time";
+  if (isDay(string)) return "Day";
+  if (isDate(string)) return "Date";
+  if (isPeriod(string)) return "Period";
+  if (isTimePeriod(string)) return "Period";
+  if (isTimeFormat(string)) return "Time";
 
   return false;
 };
@@ -167,44 +180,56 @@ const validateCron = (rest) => {
   const valid = rest.every((word, index, arr) => {
     if (isCron(word)) {
       // console.log("in C")
-      if (isTimeFormat(word)) {
-        // if(arr[index+1] && isPeriod(arr[index+1])){
-        //   return true
-        // }
-        // if(arr[index+1] && isDay(arr[index+1])){
-        //   return true
-        // }
-        return true;
+      return true;
+      // if (isTimeFormat(word)) {
+      //   // if(arr[index+1] && isPeriod(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   // if(arr[index+1] && isDay(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   return true;
 
-        console.log(`in isTF Invalid word: ${word}`);
-      }
-      if (isTime(word)) {
-        // if(arr[index+1] && isPeriod(arr[index+1])){
-        //   return true
-        // }
-        return true;
+      //   console.log(`in isTF Invalid word: ${word}`);
+      // }
+      // if (isTime(word)) {
+      //   // if(arr[index+1] && isPeriod(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   return true;
 
-        console.log(`in isT Invalid word: ${word}`);
-      }
-      if (isDay(word) || isDate(word)) {
-        // if(arr[index+1] && isPeriod(arr[index+1])){
-        //   return true
-        // }
-        return true;
+      //   console.log(`in isT Invalid word: ${word}`);
+      // }
+      // if (isDay(word) || isDate(word)) {
+      //   // if(arr[index+1] && isPeriod(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   return true;
 
-        console.log(`in isD Invalid word: ${word}`);
-      }
-      if (isPeriod(word)) {
-        // if(arr[index+1] && isTimeFormat(arr[index+1])){
-        //   return true
-        // }
-        // if(arr[index+1] && isDay(arr[index+1])){
-        //   return true
-        // }
-        return true;
+      //   console.log(`in isD Invalid word: ${word}`);
+      // }
+      // if (isPeriod(word)) {
+      //   // if(arr[index+1] && isTimeFormat(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   // if(arr[index+1] && isDay(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   return true;
 
-        console.log(`in isP Invalid word: ${word}`);
-      }
+      //   console.log(`in isP Invalid word: ${word}`);
+      // }
+      // if (isTimePeriod(word)) {
+      //   // if(arr[index+1] && isTimeFormat(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   // if(arr[index+1] && isDay(arr[index+1])){
+      //   //   return true
+      //   // }
+      //   return true;
+
+      //   console.log(`in isP Invalid word: ${word}`);
+      // }
     }
     // console.log(`in IsC Invalid word: ${word}`)
     return false;
@@ -220,8 +245,9 @@ const format = {
     // use regex to match and substitute the day
     // should match the following format:
     // mon, tue., wed,,
+    // console.log("day", d)
     const day = reverseLookup(days, d.toLowerCase());
-    const fday = day[0].toUpperCase() + day.slice(1);
+    const fday = day?.[0].toUpperCase() + day?.slice(1);
 
     return fday;
   },
@@ -236,10 +262,12 @@ const format = {
 module.exports = {
   isTimeFormat,
   isDay,
+  isDays,
   isDate,
   isDayDate,
   isMonth,
   isPeriod,
+  isTimePeriod,
   isTime,
   isCronWord,
   isCron,

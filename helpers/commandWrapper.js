@@ -1,3 +1,4 @@
+const { INPUTSTATETYPES } = require("./commandUtils");
 const { botMsg } = require("./messageUtils");
 
 async function callCommand(client, msg, input, updateInputState) {
@@ -5,6 +6,16 @@ async function callCommand(client, msg, input, updateInputState) {
   let command = args.shift().toLowerCase();
 
   console.log({ command, args });
+  updateInputState(
+    command,
+    {
+      inputState: INPUTSTATETYPES["waiting for command"],
+      isIncomming: true,
+      args: [],
+    },
+    {},
+    "reset"
+  );
   if (input.lastCommand === command && isIncommingInput().isIncomming) {
     updateInputState(command, {
       inputState: "closed",
