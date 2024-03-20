@@ -87,7 +87,7 @@ module.exports = async function (collection) {
       return {};
     }
   }
-  return connectToFS();
+  return connectToMongoDB();
 };
 
 class RedisConnection {
