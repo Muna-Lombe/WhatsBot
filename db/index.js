@@ -5,6 +5,7 @@ const redis = require("redis");
 const redisClient = redis.createClient();
 const fs = require("fs");
 const path = require("path");
+const sqlite = require("sqlite3");
 
 /**
  *
@@ -18,6 +19,24 @@ module.exports = async function (collection) {
       read: (key) => conn.read(key),
       update: (key, value) => conn.update(key, value),
       delete: (key) => conn.delete(key),
+    };
+  }
+  /**
+   *
+   * @returns '{conn,coll}' - An object with conn and coll properties.
+   */
+  async function connectToSqlite() {
+    const sqliteClient = new SqliteConnection("whatsbot", collection);
+    return {
+      conn: sqliteClient,
+      /**
+       * @type {SqliteConnection}
+       * @prop {function} create - Create a new record in the collection.
+       * @prop {function} read - Read data from the collection.
+       * @prop {function} update - Update a record in the collection.
+       * @prop {function} delete - Delete a record from the collection.
+       */
+      coll: getCollection(fsClient),
     };
   }
   /**
@@ -316,6 +335,7 @@ class FsConnection {
     console.log("log this data", data);
     const file_path = this.#_get_file_path();
     const { datalist } = this.read();
+    data.id ||= datalist.length + 1;
     datalist.push(data);
     console.log("log this datalist", datalist);
 
@@ -338,9 +358,10 @@ class FsConnection {
       let idx;
       const marker = Object.keys(key)[0];
 
-      const data = datalist.filter(
-        (el, x) => el[marker] === key[marker] && (idx = x)
-      );
+      const data = datalist.filter((el, x) => {
+        idx = x;
+        return el[marker] === key[marker];
+      });
 
       return { data, datalist, idx };
     } catch (error) {
@@ -376,11 +397,151 @@ class FsConnection {
    */
   delete(key) {
     const file_path = this.#_get_file_path(this.#collection);
-    const existing_data = this.read(this.#collection);
+    const { datalist: existing_data } = this.read(this.#collection);
     const marker = Object.keys(key)[0];
     const updated_data = existing_data.filter(
       (item) => item[marker] !== key[marker]
     );
-    fs.unlinkSync(file_path);
+
+    fs.writeFileSync(file_path, JSON.stringify(updated_data));
+    // fs.unlinkSync(file_path);
+  }
+}
+
+/**
+ * A class for sqlite3-based data storage.
+ *
+ * @param {string} db_name - The name of the database.
+ * @param {string} collection_name - The name of the table.
+ */
+class SqliteConnection {
+  #collection;
+  #db_name;
+
+  constructor(db_name, collection_name) {
+    this.#db_name = db_name;
+    this.#collection = collection_name;
+
+    // initialze sqlitedb
+    this.db = new sqlite.Database(
+      this.#_get_file_path(),
+      sqlite.OPEN_READWRITE | sqlite.OPEN_CREATE,
+      (err) => {
+        if (err) {
+          console.error(err.message);
+        }
+        console.log("Connected to the SQLite database.");
+      }
+    );
+  }
+
+  /**
+   * Get the file path for a collection.
+   *
+   * @param {string} collection_name - The name of the collection.
+   * @returns {string} The file path.
+   */
+  #_get_file_path(collection_name = this.#collection) {
+    const basepath =
+      "/home/muna/code/Muna-Lombe/tutorials/javascript/console-apps/whatsapp/using_puppeteer/WhatsBot/db/persisted";
+
+    return path.join(basepath, `/${this.#db_name}_${collection_name}.json`);
+  }
+
+  close() {
+    // return fs.close();
+    return this.db.close();
+  }
+
+  /**
+   * Create a new record in the collection.
+   *
+   * @param {string} key - The key to set to.
+   * @param {object} data - The data to be stored.
+   * @returns {void}
+   */
+  create(data) {
+    this.db.serialize(() => {
+      this.db.run(
+        `CREATE TABLE IF NOT EXISTS ${
+          this.#collection
+        } (id INTEGER PRIMARY KEY, name TEXT, number TEXT)`
+      );
+      this.db.run(
+        `INSERT INTO ${this.#collection} (name, number) VALUES (?, ?)`,
+        [data.name, data.number],
+        function (err) {
+          if (err) {
+            return console.log(err.message);
+          }
+          // get the last insert id
+          console.log(`A row has been inserted with rowid ${this.lastID}`);
+        }
+      );
+    });
+  }
+
+  /**
+   * Read data from the collection.
+   *
+   * @param {string} key - The key to read.
+   * @returns {json} The list of records.
+   */
+  read(key) {
+    this.db.serialize(() => {
+      this.db.each(
+        `SELECT id, name, number FROM ${this.#collection}`,
+        (err, row) => {
+          if (err) {
+            console.error(err.message);
+          }
+          console.log(row.id + "\t" + row.name + "\t" + row.number);
+        }
+      );
+    });
+  }
+
+  /**
+   * Update a record in the collection.
+   *
+   * @param {object} - The key to update.
+   * @param {object} - The new value to set.
+   * @returns {void}
+   */
+  update(key, value) {
+    this.db.serialize(() => {
+      this.db.run(
+        `UPDATE ${this.#collection} SET name = ? WHERE id = ?`,
+        [value.name, key.id],
+        function (err) {
+          if (err) {
+            return console.error(err.message);
+          }
+          console.log(`Row(s) updated: ${this.changes}`);
+        }
+      );
+    });
+  }
+
+  /**
+   * Delete a record from the collection.
+   *
+   * @param {string} collection_name - The name of the collection.
+   * @param {object} key - The key to find the record to delete.
+   * @returns {void}
+   */
+  delete(key) {
+    this.db.serialize(() => {
+      this.db.run(
+        `DELETE FROM ${this.#collection} WHERE id = ?`,
+        [key.id],
+        function (err) {
+          if (err) {
+            return console.error(err.message);
+          }
+          console.log(`Row(s) deleted ${this.changes}`);
+        }
+      );
+    });
   }
 }
