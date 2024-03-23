@@ -36,11 +36,15 @@ const botmark = "​";
  */
 const config = require("../config");
 const database = require("../db");
+const {
+  registerBotSession,
+} = require("../session/genTokenFromWebWithDownload");
+const { response } = require("express");
 
-async function createBotSession({ userId }) {
+async function createBotSession({ userId, botId }) {
   const client = new Client({
     puppeteer: { headless: true, args: ["--no-sandbox"] },
-    authStrategy: new LocalAuth({ clientId: "whatsbot" }),
+    authStrategy: new LocalAuth({ clientId: botId }),
   });
 
   client.commands = new Map();
@@ -244,10 +248,25 @@ class BotService {
       }
     });
   }
-  async initialize(userId, token, phoneNumberId) {
-    this.client = createBotSession({ userId, token, phoneNumberId });
+
+  static async register({ userId, token, url }) {
+    console.log(userId, token);
+
+    const botIsRegistered = await (
+      await database("BotSessions")
+    ).coll.read({ userId });
+    if (botIsRegistered) {
+      return botIsRegistered;
+    }
+
+    return await registerBotSession({ userId, token, url });
   }
-  async connectBot() {
+
+  async initialize({ userId, botId }) {
+    this.client = createBotSession({ userId, botId });
+  }
+
+  async connect({ userId, botId }) {
     try {
       console.log("client initializing...");
 
@@ -267,7 +286,7 @@ class BotService {
     }
   }
 
-  async disconnectBot() {
+  async disconnect() {
     try {
       this.client
         .destroy()

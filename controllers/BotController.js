@@ -1,12 +1,51 @@
+const { request } = require("express");
 const { BotService } = require("../services/BotService");
-
+const { readFileSync } = require("fs");
 class BotController {
   BotClient;
+
+  static async register(req, res) {
+    try {
+      const { userId, token } = req.body;
+      console.log(req.body);
+      if (!userId || !token) {
+        res.status(400).json({
+          status: 400,
+          error: "Missing parameters",
+        });
+        return;
+      }
+
+      const botId = await BotService.register({
+        userId,
+        token,
+        url: req.url,
+      });
+
+      const qrCode = readFileSync(
+        path.join(__dirname, `../session/qrTemp/${userId}_login_qrcode.png`)
+      );
+      console.log("qrcode", qrcode);
+      res.status(200).json({
+        status: 200,
+        message: "Bot Initialized",
+        data: {
+          qrcode: new Blob([qrCode], { type: "image/png" }),
+          botId,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 500,
+        error: error.message,
+      });
+    }
+  }
   static async initialize(req, res) {
     try {
-      const { userId, token, phoneNumerId } = req.body;
+      const { userId, botId } = req.body;
 
-      if (!userId || !token || !phoneNumerId) {
+      if (!userId || !botId) {
         res.status(400).json({
           status: 400,
           error: "Missing parameters",
@@ -16,13 +55,11 @@ class BotController {
 
       BotClient = await new BotService().initialize({
         userId,
-        token,
-        phoneNumerId,
+        botId,
       });
       res.status(200).json({
         status: 200,
         message: "Bot Initialized",
-        data: { botId: BotClient.id },
       });
     } catch (error) {
       res.status(500).json({
@@ -33,9 +70,9 @@ class BotController {
   }
   static async connect(req, res) {
     try {
-      const { phone, message } = req.body;
+      const { userId, botId } = req.body;
 
-      if (!phone || !message) {
+      if (!userId || !botId) {
         res.status(400).json({
           status: 400,
           error: "Missing parameters",
@@ -43,11 +80,10 @@ class BotController {
         return;
       }
 
-      await BotClient.connectBot();
+      await BotClient.connectBot({ userId, botId });
       res.status(200).json({
         status: 200,
         message: "Bot Connected",
-        data: { botId: "10" },
       });
     } catch (error) {
       res.status(500).json({
