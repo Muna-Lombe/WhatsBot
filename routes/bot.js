@@ -17,13 +17,6 @@ botRouter.post(
 );
 
 botRouter.post(
-  "/initialize",
-  (req, res, next) => {
-    return next();
-  },
-  BotController.initialize
-);
-botRouter.post(
   "/connect",
   (req, res, next) => {
     return next();

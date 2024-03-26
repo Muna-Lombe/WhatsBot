@@ -2,7 +2,7 @@
 const express = require("express");
 const app = express();
 const { router } = require("./routes");
-
+const fs = require("fs");
 app.use(express.json()); // for application/json
 app.use(express.urlencoded({ extended: true }));
 
@@ -253,6 +253,21 @@ app.use(express.urlencoded({ extended: true }));
 // });
 
 app.use("/", router);
+app.get("/qrTemp/:id.:imageType", (req, res) => {
+  const { id, imageType } = req.params;
+  if (
+    !id ||
+    !imageType ||
+    !fs.existsSync(`${__dirname}/session/qrTemp/${id}.${imageType}`)
+  ) {
+    res.status(404).json({
+      status: 404,
+      error: "Nothing Here",
+    });
+    return;
+  }
+  res.sendFile(`${__dirname}/session/qrTemp/${id}.${imageType}`);
+});
 
 app.listen(process.env.PORT || 8080, () => {
   console.log(`Server listening at Port: ${process.env.PORT || 8080}`);
@@ -261,3 +276,24 @@ app.listen(process.env.PORT || 8080, () => {
 //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////////................................../////////
+// const { createServer } = require('http')
+// const { Server } = require('socket.io')
+
+// const httpServer = createServer()
+// httpServer.listen(5500)
+// const io = new Server(httpServer, {
+//   cors: {
+//     origin: '*',
+//   },
+
+// })
+
+// io.on('connection', socket => {
+//   console.log('a user connected')
+//   socket.on('disconnect', () => {
+//     console.log('user disconnected')
+//   })
+//   socket.on('message', msg => {
+//     console.log('message:', msg)
+//   })
+// })
