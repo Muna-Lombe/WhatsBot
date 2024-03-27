@@ -1,8 +1,15 @@
 const { request, response } = require("express");
 const { BotService } = require("../services/BotService");
 const { readFileSync } = require("fs");
+const {
+  registerBotSession,
+} = require("../session/genTokenFromWebWithDownload");
+const { BotClient } = require("../mainly");
+const { startBot } = require("../startProcess");
+
 class BotController {
-  static BotClient = null;
+  static BotClient = BotClient;
+  static startBot = startBot;
 
   static async register(req, res) {
     try {
@@ -16,11 +23,17 @@ class BotController {
         return;
       }
       console.log("registering...", userId, token);
-      const { respond } = await BotService.register({
+      await registerBotSession({
         userId,
         token,
-        res: { req, res },
+        http: { req, res },
       });
+
+      // const { respond } = await BotService.register({
+      //   userId,
+      //   token,
+      //   res: { req, res },
+      // });
 
       // await respond(new URL(req.url, `http://${req.headers.host}`));
       // const qrCode = readFileSync(
@@ -55,9 +68,10 @@ class BotController {
         });
         return;
       }
+      await startBot(botId.split("_")[1], botId, BotClient);
 
-      const BotClient = new BotService(userId, botId);
-      await BotClient.connect();
+      // const BotClient = new BotService(userId, botId);
+      // await BotClient.connect();
       res.status(200).json({
         status: 200,
         message: "Bot Connected",

@@ -40,7 +40,7 @@ module.exports = {
       }
     } catch (_) {}
   },
-  write: async function write(password, botId) {
+  write: async function write(password, userId) {
     excludedDir.forEach((dir) => {
       try {
         fs.rmSync(`${base}${dir}/`, { recursive: true });
@@ -52,21 +52,21 @@ module.exports = {
     setPassword(getCipherKey(password));
     await new Promise((resolve) => {
       createEncryptStream(fs.createReadStream(`${__dirname}/temp.zip`))
-        .pipe(fs.createWriteStream(`${__dirname}/../${botId}_session.secure`))
+        .pipe(fs.createWriteStream(`${__dirname}/../${userId}_session.secure`))
         .on("finish", () => {
           resolve();
         });
     });
     fs.unlinkSync(`${__dirname}/temp.zip`);
   },
-  replicate: async function replicate(botId) {
+  replicate: async function replicate(userId) {
     try {
       setPassword(getCipherKey(config.session_key));
       // console.log("dirname:",__dirname);
       fs.appendFileSync(`${__dirname}/temp.zip`, ""); //,()=>{console.log("file created")});
 
       await new Promise((resolve) => {
-        fs.createReadStream(`${__dirname}/../${botId}_session.secure`)
+        fs.createReadStream(`${__dirname}/../${userId}_session.secure`)
           .pipe(
             createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
           )
@@ -77,7 +77,7 @@ module.exports = {
             let unzip = new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
             unzip.extractAllToAsync(base, true, false, (err) => {
               if (err) {
-                // console.log("error caught:", err)
+                console.log("error caught:", err);
               }
             });
           });
@@ -94,14 +94,14 @@ module.exports = {
       } catch (_) {}
     }
   },
-  fetchSession: async function fetchSession(botId) {
+  fetchSession: async function fetchSession(userId) {
     try {
       if (process.env.SESSION_URL) {
         let response = await axios.get(process.env.SESSION_URL, {
           responseType: "arraybuffer",
         });
         fs.writeFileSync(
-          `${__dirname}/../${botId}_session.secure`,
+          `${__dirname}/../${userId}_session.secure`,
           response.data,
           {
             encoding: "binary",

@@ -447,7 +447,7 @@ class BotService {
     }
   }
 
-  static async register({ userId, token, res }) {
+  static async register({ userId, token, http }) {
     console.log("sd", userId, token);
 
     // const botIsRegistered = await (
@@ -457,7 +457,7 @@ class BotService {
     //   return botIsRegistered;
     // }
 
-    return await registerBotSession({ userId, token, res });
+    return await registerBotSession({ userId, token, http });
   }
 
   async connect() {

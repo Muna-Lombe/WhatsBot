@@ -10,7 +10,7 @@ const path = require("path");
 const { response } = require("express");
 const app = require("express")();
 
-async function generateNewToken({ userId, token, res }) {
+async function generateNewToken({ userId, token, http }) {
   clean();
   console.log("cleaned..!");
   userId = userId.replace(" ", "-");
@@ -52,10 +52,10 @@ async function generateNewToken({ userId, token, res }) {
     });
     const opt2 = new URL(
       `/qrTemp/${userId}_login_qrcode.png`,
-      `http://${res.req.headers.host}`
+      `http://${http.req.headers.host}`
     );
 
-    return res.res.status(200).send({
+    return http.res.status(200).send({
       message: "QR genereated",
       data: {
         qrcode: opt2,
@@ -84,7 +84,7 @@ async function generateNewToken({ userId, token, res }) {
     setTimeout(async () => {
       console.log("Session has been created");
       await write(token, userId);
-      await fetch("http://localhost:5000/bot/notify", {
+      await fetch("http://localhost:5000/bot/notification", {
         method: "POST",
         body: JSON.stringify({
           botId,
@@ -97,7 +97,7 @@ async function generateNewToken({ userId, token, res }) {
 
       await unlink(path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`));
       // app.response.download("./session.secure");
-    }, 3000);
+    }, 1000);
   });
 
   return {
