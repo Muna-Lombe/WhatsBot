@@ -15,7 +15,7 @@ dependencies:
     specifier: ^0.2.0
     version: 0.2.0
   axios:
-    specifier: ^0.21.0
+    specifier: ^0.21.4
     version: 0.21.4
   child_process:
     specifier: ^1.0.2
@@ -294,6 +294,7 @@ packages:
   /agent-base@6.0.2:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
     engines: {node: '>= 6.0.0'}
+    requiresBuild: true
     dependencies:
       debug: 4.3.4
     transitivePeerDependencies:

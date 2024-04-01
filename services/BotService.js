@@ -457,7 +457,7 @@ class BotService {
     //   return botIsRegistered;
     // }
 
-    return await registerBotSession({ userId, token, http });
+    await registerBotSession({ userId, token, http });
   }
 
   async connect() {

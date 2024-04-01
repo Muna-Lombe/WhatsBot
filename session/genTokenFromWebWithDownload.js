@@ -9,6 +9,7 @@ const { unlink } = require("fs/promises");
 const path = require("path");
 const { response } = require("express");
 const app = require("express")();
+const axios = require("axios");
 
 async function generateNewToken({ userId, token, http }) {
   clean();
@@ -55,24 +56,22 @@ async function generateNewToken({ userId, token, http }) {
       `http://${http.req.headers.host}`
     );
 
-    return http.res.status(200).send({
+    http.res.status(200).send({
       message: "QR genereated",
       data: {
         qrcode: opt2,
       },
     });
 
-    // .sendFile(
-    //   path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`),
-    //   function (err) {
-    //     console.log(err)
-    //   }
-    // );
-    // res.download(
-    //   path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`), function (err) {
-    //     console.log(err)
-    //   }
-    // )
+    // await axios.post(
+    //     "http://localhost:5000/bot/message",
+    //     {
+    //       message: "qr-genereated",
+    //       data: {
+    //         qrcode: opt2,
+    //       }
+    //     }
+    //   );
   });
   client.on("authenticated", async (session) => {
     console.log("authenticated", session);
@@ -84,20 +83,16 @@ async function generateNewToken({ userId, token, http }) {
     setTimeout(async () => {
       console.log("Session has been created");
       await write(token, userId);
-      await fetch("http://localhost:5000/bot/notification", {
-        method: "POST",
-        body: JSON.stringify({
+      await axios.post("http://localhost:5000/bot/message", {
+        data: {
           botId,
-          message: "authenticated",
-        }),
-        headers: {
-          "Content-Type": "application/json",
         },
+        message: "bot-registered",
       });
 
       await unlink(path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`));
       // app.response.download("./session.secure");
-    }, 1000);
+    }, 3000);
   });
 
   return {

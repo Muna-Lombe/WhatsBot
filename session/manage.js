@@ -74,7 +74,8 @@ module.exports = {
             // console.log("resolving...")
             resolve();
             // console.log("resolved!")
-            let unzip = new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
+            // const zipfile = new AdmZip(`${__dirname}/temp.zip`);
+            let unzip = new AdmZip(`${__dirname}/temp.zip`); //new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
             unzip.extractAllToAsync(base, true, false, (err) => {
               if (err) {
                 console.log("error caught:", err);
