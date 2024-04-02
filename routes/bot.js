@@ -1,34 +1,62 @@
 const { Router } = require("express");
-const express = require("express");
-const { BotService } = require("../services/BotService");
+const { verifyToken } = require("../middlewares/Auth");
 const { BotController } = require("../controllers/BotController");
+const ws = require("ws");
+const {
+  registerBotSession,
+} = require("../session/genTokenFromWebWithDownload");
 
 const botRouter = Router();
 
-// public directory will be publicly available
+// botRouter.post('/register', verifyToken, BotController.register);
+// botRouter.post('/connect', verifyToken, BotController.connect);
+// botRouter.post('/disconnect', verifyToken, BotController.disconnect);
+// botRouter.post('/message', verifyToken, BotController.message);
 
-botRouter.post(
-  "/register",
-  (req, res, next) => {
-    console.log("post regitersing...");
-    return next();
-  },
-  BotController.register
-);
+const wsRouter = (socket, message) => {
+  const { event, ...rest } = message.toJson();
 
-botRouter.post(
-  "/connect",
-  (req, res, next) => {
-    return next();
-  },
-  BotController.connect
-);
-botRouter.post(
-  "/disconnect",
-  (req, res, next) => {
-    return next();
-  },
-  BotController.disconnect
-);
+  if (event === "register") {
+    socket.send("waiting to register...");
+    setTimeout(() => {
+      Promise.all([
+        new Promise((resolve, reject) => {
+          registerBotSession;
+          resolve();
+        }),
+      ]).then((promises) => {
+        socket.send("registered");
+      });
+    }, 2000);
+  }
+  if (event === "connect") {
+    socket.send("waiting to connect...");
+    setTimeout(() => {
+      Promise.all([
+        new Promise((resolve, reject) => {
+          wsClient.send("connect");
+          resolve();
+        }),
+      ]).then((promises) => {
+        socket.send("connected");
+      });
+    }, 2000);
+  }
+  if (event === "disconnect") {
+    socket.send("waiting to disconnect...");
+    setTimeout(() => {
+      Promise.all([
+        new Promise((resolve, reject) => {
+          wsClient.send("disconnect");
+          resolve();
+        }),
+      ]).then((promises) => {
+        socket.send("disconnected");
+      });
 
-module.exports = { botRouter };
+      // socket.send('disconnected')
+    }, 2000);
+  }
+};
+
+module.exports = { wsRouter };

@@ -1,8 +1,11 @@
 //jshint esversion:11
 const express = require("express");
 const app = express();
+const ws = require("ws");
+
 const { router } = require("./routes");
 const fs = require("fs");
+const { wsRouter } = require("./routes/bot");
 app.use(express.json()); // for application/json
 app.use(express.urlencoded({ extended: true }));
 
@@ -252,48 +255,55 @@ app.use(express.urlencoded({ extended: true }));
 //   );
 // });
 
-app.use("/", router);
-app.get("/qrTemp/:id.:imageType", (req, res) => {
-  const { id, imageType } = req.params;
-  if (
-    !id ||
-    !imageType ||
-    !fs.existsSync(`${__dirname}/session/qrTemp/${id}.${imageType}`)
-  ) {
-    res.status(404).json({
-      status: 404,
-      error: "Nothing Here",
-    });
-    return;
-  }
-  res.sendFile(`${__dirname}/session/qrTemp/${id}.${imageType}`);
-});
+// app.use("/", router);
+// app.get("/qrTemp/:id.:imageType", (req, res) => {
+//   const { id, imageType } = req.params;
+//   if (
+//     !id ||
+//     !imageType ||
+//     !fs.existsSync(`${__dirname}/session/qrTemp/${id}.${imageType}`)
+//   ) {
+//     res.status(404).json({
+//       status: 404,
+//       error: "Nothing Here",
+//     });
+//     return;
+//   }
+//   res.sendFile(`${__dirname}/session/qrTemp/${id}.${imageType}`);
+// });
 
-app.listen(process.env.PORT || 8080, () => {
-  console.log(`Server listening at Port: ${process.env.PORT || 8080}`);
-});
+// app.listen(process.env.PORT || 8080, () => {
+//   console.log(`Server listening at Port: ${process.env.PORT || 8080}`);
+// });
 
 //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////////................................../////////
-// const { createServer } = require('http')
-// const { Server } = require('socket.io')
 
-// const httpServer = createServer()
-// httpServer.listen(5500)
-// const io = new Server(httpServer, {
-//   cors: {
-//     origin: '*',
-//   },
+// const wsServer = new ws.Server({ port: 5101, path: '/api/bot' })
 
+const wss = new ws.Server({ port: 5101, path: "/api/bot" });
+wss.on("connection", (socket, req) => {
+  socket.on("message", (message) => {
+    console.log("wss", message.toString());
+    wsRouter(socket, message);
+  });
+  socket.on("error", (error) => console.log("ws Socket error: ", error));
+});
+
+wss.on("error", (error) => console.log("wss error: ", error));
+
+// wsServer.on('connection', socket => {
+//   socket.on('message', message => {
+//     console.log(message.toString())
+//     setTimeout(() => {
+//       socket.send(`${message.toString()} done!`)
+//     }, 2000)
+
+//   })
 // })
 
-// io.on('connection', socket => {
-//   console.log('a user connected')
-//   socket.on('disconnect', () => {
-//     console.log('user disconnected')
-//   })
-//   socket.on('message', msg => {
-//     console.log('message:', msg)
-//   })
+// wsServer.on('connection', socket => {
+
+//   socket.on('message', message => console.log(message))
 // })
