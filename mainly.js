@@ -56,11 +56,6 @@ function BotClient(botId) {
 
   console.log("client initializing...");
 
-  client
-    .initialize()
-    .then((res) => console.log("client initialize!"))
-    .catch((err) => console.log("client error", err));
-
   client.on("auth_failure", () => {
     console.error(
       "There is a problem in authentication, Kindly set the env var again and restart the app"
@@ -265,6 +260,17 @@ function BotClient(botId) {
   app.listen(process.env.PORT || 8080, () => {
     console.log(`Server listening at Port: ${process.env.PORT || 8080}`);
   });
+  return {
+    start: () => {
+      client
+        .initialize()
+        .then((res) => console.log("client initialize!"))
+        .catch((err) => console.log("client error", err));
+    },
+    stop: () => {
+      client.destroy();
+    },
+  };
 }
 
 module.exports = {

@@ -7,6 +7,6 @@ const router = Router();
 // routes
 
 router.use("/public", publicRouter);
-router.use("/api/bot", botRouter);
+// router.use("/api/bot", botRouter);
 
 module.exports = { router };

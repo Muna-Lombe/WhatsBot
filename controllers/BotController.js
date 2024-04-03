@@ -5,53 +5,26 @@ const {
   registerBotSession,
 } = require("../session/genTokenFromWebWithDownload");
 const { BotClient } = require("../mainly");
-const { startBot } = require("../startProcess");
+const { startBot, stopBot } = require("../startProcess");
 
 class BotController {
   static BotClient = BotClient;
   static startBot = startBot;
 
-  static async register(req, res) {
+  static async register(socket, message) {
     try {
-      const { userId, token } = req.body;
-      console.log("ref", req.body);
-      if (!userId || !token) {
-        res.status(400).json({
-          code: 400,
-          error: "Missing parameters",
+      socket.send("waiting to register...");
+      const { userId, token } = message;
+      setTimeout(() => {
+        Promise.all([
+          new Promise((resolve, reject) => {
+            registerBotSession({ userId, token, ws: socket });
+            resolve();
+          }),
+        ]).then((promises) => {
+          socket.send("registered");
         });
-        return;
-      }
-      console.log("registering...", userId, token);
-      await registerBotSession({
-        userId,
-        token,
-        http: { req, res },
-      });
-      // res.status(200).json({
-      //   code: 200,
-      //   message: "Generating QR Code",
-      // });
-
-      // const { respond } = await BotService.register({
-      //   userId,
-      //   token,
-      //   res: { req, res },
-      // });
-
-      // await respond(new URL(req.url, `http://${req.headers.host}`));
-      // const qrCode = readFileSync(
-      //   path.join(__dirname, `../session/qrTemp/${userId}_login_qrcode.png`)
-      // );
-      // console.log("qrcode", qrcode);
-      // res.status(200).json({
-      //   code: 200,
-      //   message: "Bot Initialized",
-      //   data: {
-      //     qrcode: new Blob([qrCode], { type: "image/png" }),
-      //     botId,
-      //   },
-      // });
+      }, 2000);
     } catch (error) {
       console.log("error in register:", error);
       res.status(500).json({
@@ -60,26 +33,21 @@ class BotController {
       });
     }
   }
-  static async connect(req, res) {
+  static async connect(socket, message) {
     try {
-      const { userId, botId } = req.body;
-      console.log("conn", req.body);
+      const { botId } = message;
+      socket.send("waiting to connect...");
+      setTimeout(() => {
+        Promise.all([
+          new Promise(async (resolve, reject) => {
+            await startBot(botId.split("_")[1], botId, BotClient);
 
-      if (!userId || !botId) {
-        res.status(400).json({
-          code: 400,
-          error: "Missing parameters",
+            resolve();
+          }),
+        ]).then((promises) => {
+          socket.send("connected");
         });
-        return;
-      }
-      await startBot(botId.split("_")[1], botId, BotClient);
-
-      // const BotClient = new BotService(userId, botId);
-      // await BotClient.connect();
-      res.status(200).json({
-        code: 200,
-        message: "Bot Connected",
-      });
+      }, 2000);
     } catch (error) {
       console.log("error in connect:", error);
       res.status(404).json({
@@ -89,23 +57,21 @@ class BotController {
     }
   }
 
-  static async disconnect(req, res) {
+  static async disconnect(socket, message) {
     try {
-      const { phone, template } = req.body;
+      const { botId } = message;
+      socket.send("waiting to disconnect...");
+      setTimeout(() => {
+        Promise.all([
+          new Promise(async (resolve, reject) => {
+            await stopBot(botId, BotClient);
 
-      if (!phone || !template) {
-        res.status(400).json({
-          code: 400,
-          error: "Missing parameters",
+            resolve();
+          }),
+        ]).then((promises) => {
+          socket.send("disconnected");
         });
-        return;
-      }
-
-      await this.BotClient.client.disconnectBot();
-      res.status(200).json({
-        code: 200,
-        message: "Bot Disconnected",
-      });
+      }, 2000);
     } catch (error) {
       res.status(500).json({
         code: 500,
