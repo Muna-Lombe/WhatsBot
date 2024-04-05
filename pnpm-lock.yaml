@@ -78,7 +78,7 @@ dependencies:
     specifier: ^2.0.0
     version: 2.0.0
   whatsapp-web.js:
-    specifier: ^1.22.1
+    specifier: ^1.23.0
     version: 1.23.0
   ws:
     specifier: ^8.16.0
