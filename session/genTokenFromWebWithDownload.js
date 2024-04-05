@@ -10,6 +10,7 @@ const path = require("path");
 const { response } = require("express");
 const app = require("express")();
 const axios = require("axios");
+const { server_url } = require("../config");
 
 async function generateNewToken({ userId, token, http, ws }) {
   try {
@@ -54,9 +55,9 @@ async function generateNewToken({ userId, token, http, ws }) {
       });
       const opt2 = new URL(
         `/qrTemp/${userId}_login_qrcode.png`,
-        `http://${http.req.headers.host}`
+        `http://${http?.req?.headers?.host || server_url}`
       );
-      if (http.hasOwnProperty("req")) {
+      if (http?.hasOwnProperty("req")) {
         http.res.status(200).send({
           message: "QR genereated",
           data: {

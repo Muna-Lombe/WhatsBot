@@ -4,6 +4,7 @@ require("dotenv").config();
 
 module.exports = {
   session_key: process.env.SESSION_KEY,
+  server_url: "localhost:" + process.env.PORT,
   timezone:
     process.env.TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone,
   pmpermit_enabled: process.env.PMPERMIT_ENABLED || "true",

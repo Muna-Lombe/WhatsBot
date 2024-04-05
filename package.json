@@ -47,7 +47,7 @@
     "ud-api": "^3.0.2-2",
     "vcf": "^2.1.1",
     "weather-js": "^2.0.0",
-    "whatsapp-web.js": "^1.23.0",
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#webpack-exodus",
     "ws": "^8.16.0"
   },
   "devDependencies": {
