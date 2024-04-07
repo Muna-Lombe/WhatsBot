@@ -11,12 +11,16 @@ const { response } = require("express");
 const app = require("express")();
 const axios = require("axios");
 const { server_url } = require("../config");
+const { startBot } = require("../startProcess");
 
-async function generateNewToken({ userId, token, http, ws }) {
+async function generateNewToken({ userId, http, BotClient, ws }) {
   try {
     clean();
     console.log("cleaned..!");
     userId = userId.replace(" ", "-");
+    const token =
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15);
     const botId = "whatsbot_" + userId + "_" + token;
     console.log("botId: ", botId);
     const client = new Client({
@@ -54,7 +58,7 @@ async function generateNewToken({ userId, token, http, ws }) {
         );
       });
       const opt2 = new URL(
-        `/qrTemp/${userId}_login_qrcode.png`,
+        `/securelink/qrTemp/${userId}_login_qrcode.png`,
         `http://${http?.req?.headers?.host || server_url}`
       );
       if (http?.hasOwnProperty("req")) {
@@ -65,14 +69,17 @@ async function generateNewToken({ userId, token, http, ws }) {
           },
         });
       } else if (ws) {
-        ws.send(
-          JSON.stringify({
-            message: "qr-genereated",
-            data: {
-              qrcode: opt2,
-            },
-          })
-        );
+        const message = JSON.stringify({
+          event: "register",
+          status: "scanningQr",
+          message: "qr-genereated",
+          data: {
+            botId,
+            qrcode: opt2,
+          },
+        });
+        console.log("sending wss message", message);
+        ws.send(message);
       }
 
       // await axios.post(
@@ -85,8 +92,48 @@ async function generateNewToken({ userId, token, http, ws }) {
       //     }
       //   );
     });
+    client.on("auth_failure", async (error) => {
+      if (http.hasOwnProperty("req")) {
+        await axios.post("http://localhost:5000/bot/message", {
+          data: {
+            botId,
+          },
+          message: "bot-register-error",
+        });
+      } else if (ws) {
+        ws.send(
+          JSON.stringify({
+            event: "connect",
+            status: "error",
+            data: {
+              botId,
+            },
+            message: "bot-register-error",
+          })
+        );
+      }
+    });
     client.on("authenticated", async (session) => {
       console.log("authenticated", session);
+      if (http?.hasOwnProperty("req")) {
+        await axios.post("http://localhost:5000/bot/message", {
+          event: "connect",
+          status: "pending",
+          data: {
+            botId,
+          },
+        });
+      } else if (ws) {
+        ws.send(
+          JSON.stringify({
+            event: "connect",
+            status: "pending",
+            data: {
+              botId,
+            },
+          })
+        );
+      }
     });
     client.on("ready", () => {
       client.destroy();
@@ -95,8 +142,10 @@ async function generateNewToken({ userId, token, http, ws }) {
       setTimeout(async () => {
         console.log("Session has been created");
         await write(token, userId);
-        if (http.hasOwnProperty("req")) {
+        if (http?.hasOwnProperty("req")) {
           await axios.post("http://localhost:5000/bot/message", {
+            event: "connect",
+            status: "complete",
             data: {
               botId,
             },
@@ -105,6 +154,8 @@ async function generateNewToken({ userId, token, http, ws }) {
         } else if (ws) {
           ws.send(
             JSON.stringify({
+              event: "connect",
+              status: "complete",
               data: {
                 botId,
               },
@@ -116,6 +167,7 @@ async function generateNewToken({ userId, token, http, ws }) {
         await unlink(
           path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`)
         );
+        startBot(botId.split("_")[1], botId, BotClient, ws);
         // app.response.download("./session.secure");
       }, 3000);
     });

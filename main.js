@@ -10,6 +10,7 @@ const fs = require("fs");
 const { wsRouter } = require("./routes/bot");
 app.use(express.json()); // for application/json
 app.use(express.urlencoded({ extended: true }));
+app.use("/", router);
 const httpServer = createServer(app, {});
 httpServer.removeAllListeners("upgrade");
 

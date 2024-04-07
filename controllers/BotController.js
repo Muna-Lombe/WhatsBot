@@ -13,17 +13,15 @@ class BotController {
 
   static async register(socket, message) {
     try {
-      socket.send("waiting to register...");
-      const { userId, token } = message;
+      // socket.send("waiting to register...");
+      const { userId } = message;
       setTimeout(() => {
         Promise.all([
           new Promise((resolve, reject) => {
-            registerBotSession({ userId, token, ws: socket });
+            registerBotSession({ userId, BotClient, ws: socket });
             resolve();
           }),
-        ]).then((promises) => {
-          socket.send("registered");
-        });
+        ]);
       }, 2000);
     } catch (error) {
       console.log("error in register:", error);
@@ -40,13 +38,11 @@ class BotController {
       setTimeout(() => {
         Promise.all([
           new Promise(async (resolve, reject) => {
-            await startBot(botId.split("_")[1], botId, BotClient);
+            await startBot(botId.split("_")[1], botId, BotClient, socket);
 
             resolve();
           }),
-        ]).then((promises) => {
-          socket.send("connected");
-        });
+        ]);
       }, 2000);
     } catch (error) {
       console.log("error in connect:", error);

@@ -22,6 +22,7 @@ session.txt
 session-output/*
 session-output
 session.secure
+.secure
 utilities/
 .vscode/
 db/persisted/*

@@ -8,6 +8,6 @@ const router = Router();
 // routes
 
 router.use("/public", publicRouter);
-router.use("/securelink", botRouter);
+router.use("/securelink", secureLinkRouter);
 
 module.exports = { router };

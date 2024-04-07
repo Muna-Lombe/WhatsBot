@@ -32,7 +32,7 @@ const { callCommand } = require("./helpers/commandWrapper");
 const { botMsg } = require("./helpers/messageUtils");
 const { INPUTSTATETYPES } = require("./helpers/commandUtils");
 
-function BotClient(botId) {
+function BotClient(botId, ws) {
   const app = express();
 
   const botmark = "​";
@@ -55,26 +55,6 @@ function BotClient(botId) {
   });
 
   console.log("client initializing...");
-
-  client.on("auth_failure", () => {
-    console.error(
-      "There is a problem in authentication, Kindly set the env var again and restart the app"
-    );
-  });
-
-  //
-
-  client.on("ready", async () => {
-    console.log("Bot has been started");
-    try {
-      await logger(
-        client,
-        "Bot has been started!\n\nGet started by sending `!help` to see what commands are available."
-      );
-    } catch (err) {
-      console.log(err);
-    }
-  });
 
   client.on("message", async (msg) => {
     if (!msg.author && config.pmpermit_enabled === "true") {
@@ -266,6 +246,52 @@ function BotClient(botId) {
         .initialize()
         .then((res) => console.log("client initialize!"))
         .catch((err) => console.log("client error", err));
+      client.on("auth_failure", () => {
+        console.error(
+          "There is a problem in authentication, Kindly set the env var again and restart the app"
+        );
+        ws.send(
+          JSON.stringify({
+            event: "connect",
+            status: "error",
+            message: "bot failed to authenticate",
+          })
+        );
+      });
+
+      client.on("authenticated", async (session) => {
+        console.log("authenticated", session);
+        ws.send(
+          JSON.stringify({
+            event: "connect",
+            status: "pending",
+            data: {
+              botId,
+            },
+          })
+        );
+      });
+
+      client.on("ready", async () => {
+        console.log("Bot has been started");
+        try {
+          await logger(
+            client,
+            "Bot has been started!\n\nGet started by sending `!help` to see what commands are available."
+          );
+          ws.send(
+            JSON.stringify({
+              event: "connect",
+              status: "pending",
+              data: {
+                botId,
+              },
+            })
+          );
+        } catch (err) {
+          console.log(err);
+        }
+      });
     },
     stop: () => {
       client.destroy();

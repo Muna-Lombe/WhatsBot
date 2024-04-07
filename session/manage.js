@@ -72,15 +72,17 @@ module.exports = {
           )
           .on("finish", () => {
             // console.log("resolving...")
-            resolve();
             // console.log("resolved!")
             // const zipfile = new AdmZip(`${__dirname}/temp.zip`);
-            let unzip = new AdmZip(`${__dirname}/temp.zip`); //new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
-            unzip.extractAllToAsync(base, true, false, (err) => {
-              if (err) {
-                console.log("error caught:", err);
-              }
-            });
+            setTimeout(() => {
+              let unzip = new AdmZip(`${__dirname}/temp.zip`); //new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
+              unzip.extractAllToAsync(base, true, false, (err) => {
+                if (err) {
+                  console.log("error caught:", err);
+                }
+              });
+            }, 1000);
+            resolve();
           });
       });
 
