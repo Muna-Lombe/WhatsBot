@@ -11,6 +11,11 @@ const wsRouter = async (socket, message) => {
   if (event === "echo") {
     socket.send(JSON.stringify({ event: "echo", message: "hello" }));
   }
+  if (event === "healthCheck") {
+    await BotController.healthCheck(socket, rest);
+    return;
+    // socket.send(JSON.stringify({ event: "echo", message: "hello" }));
+  }
   if (event === "register") {
     await BotController.register(socket, rest);
     return;

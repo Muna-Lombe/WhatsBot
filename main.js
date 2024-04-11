@@ -21,10 +21,13 @@ wss.on("connection", (socket, req) => {
 
     wsRouter(socket, message);
   });
+  socket.on("pong", () => console.log("pong"));
   socket.on("error", (error) => console.log("ws Socket error: ", error));
 });
 
 wss.on("error", (error) => console.log("wss error: ", error));
+//
+wss.on("close", (error) => console.log("wss close: ", error));
 httpServer.on("upgrade", (req, socket, head) => {
   const { pathname } = new URL(req.url, `http://${req.headers.host}`);
   if (pathname.startsWith("/api/bot")) {

@@ -31,13 +31,18 @@ const { getContactIdByName } = require("./helpers/findContact");
 const { callCommand } = require("./helpers/commandWrapper");
 const { botMsg } = require("./helpers/messageUtils");
 const { INPUTSTATETYPES } = require("./helpers/commandUtils");
+const { timeStamp } = require("console");
+const { botsDb } = require("./services");
 
 function BotClient(botId, ws) {
   const app = express();
 
   const botmark = "​";
   const client = new Client({
-    puppeteer: { headless: true, args: ["--no-sandbox"] },
+    puppeteer: {
+      headless: true,
+      args: ["--no-sandbox"],
+    },
     authStrategy: new LocalAuth({ clientId: botId }),
   });
 
@@ -211,74 +216,57 @@ function BotClient(botId, ws) {
     }
   });
 
-  client.on("disconnected", (reason) => {
+  client.on("disconnected", async (reason) => {
     console.log("Client was logged out", reason);
     try {
-      client.destroy();
+      await client.destroy();
       client.initialize();
     } catch (error) {
       logger(client, "Client was logged out, could not reconnect");
     }
   });
 
-  app.get("/", (req, res) => {
-    res.send(
-      '<h1>This server is powered by Whatsbot<br><a href="https://github.com/tuhinpal/WhatsBot">https://github.com/tuhinpal/WhatsBot</a></h1>'
-    );
-  });
+  // app.get("/", (req, res) => {
+  //   res.send(
+  //     '<h1>This server is powered by Whatsbot<br><a href="https://github.com/tuhinpal/WhatsBot">https://github.com/tuhinpal/WhatsBot</a></h1>'
+  //   );
+  // });
 
-  app.get("/api/bot/register", (req, res) => {
-    // create a userId_session.secure
-  });
+  // app.get("/api/bot/register", (req, res) => {
+  //   // create a userId_session.secure
+  // });
 
-  app.use(
-    "/public",
-    express.static("public"),
-    require("serve-index")("public", { icons: true })
-  ); // public directory will be publicly available
+  // app.use(
+  //   "/public",
+  //   express.static("public"),
+  //   require("serve-index")("public", { icons: true })
+  // ); // public directory will be publicly available
 
-  app.listen(process.env.PORT || 8080, () => {
-    console.log(`Server listening at Port: ${process.env.PORT || 8080}`);
-  });
+  // app.listen(process.env.PORT || 8080, () => {
+  //   console.log(`Server listening at Port: ${process.env.PORT || 8080}`);
+  // });
   return {
     start: () => {
-      client
-        .initialize()
-        .then((res) => console.log("client initialize!"))
-        .catch((err) => console.log("client error", err));
-      client.on("auth_failure", () => {
-        console.error(
-          "There is a problem in authentication, Kindly set the env var again and restart the app"
-        );
-        ws.send(
-          JSON.stringify({
-            event: "connect",
-            status: "error",
-            message: "bot failed to authenticate",
-          })
-        );
-      });
-
-      client.on("authenticated", async (session) => {
-        console.log("authenticated", session);
-        ws.send(
-          JSON.stringify({
-            event: "connect",
-            status: "pending",
-            data: {
-              botId,
-            },
-          })
-        );
-      });
-
-      client.on("ready", async () => {
-        console.log("Bot has been started");
-        try {
-          await logger(
-            client,
-            "Bot has been started!\n\nGet started by sending `!help` to see what commands are available."
+      try {
+        client
+          .initialize()
+          .then((res) => console.log("client initialize!"))
+          .catch((err) => console.log("client error", err));
+        client.on("auth_failure", () => {
+          console.error(
+            "There is a problem in authentication, Kindly set the env var again and restart the app"
           );
+          ws.send(
+            JSON.stringify({
+              event: "connect",
+              status: "error",
+              message: "bot failed to authenticate",
+            })
+          );
+        });
+
+        client.on("authenticated", async (session) => {
+          console.log("authenticated", session);
           ws.send(
             JSON.stringify({
               event: "connect",
@@ -288,12 +276,74 @@ function BotClient(botId, ws) {
               },
             })
           );
-        } catch (err) {
-          console.log(err);
-        }
-      });
+        });
+
+        client.on("ready", async () => {
+          const { conn, coll } = await botsDb;
+          console.log("Bot has been started");
+          let healthCheck;
+          coll.update({ botId }, { status: "running", timeStamp: new Date() });
+
+          await logger(
+            client,
+            "Bot has been started!\n\nGet started by sending `!help` to see what commands are available."
+          );
+          ws.send(
+            JSON.stringify({
+              event: "connect",
+              status: "bot started",
+              data: {
+                botId,
+              },
+            })
+          );
+          // health check
+
+          healthCheck = setInterval(async () => {
+            await coll.update(
+              { botId },
+              { status: "running", timeStamp: new Date() }
+            );
+
+            await ws.ping(
+              JSON.stringify({
+                event: "health-check",
+                status: "ok",
+                botId,
+              })
+            );
+          }, 1000 * 60 * 5);
+        });
+      } catch (err) {
+        console.log(err);
+        clearInterval(healthCheck);
+        botsDb.then(({ conn, coll }) =>
+          coll.update({ botId }, { status: "stopped", timeStamp: new Date() })
+        );
+
+        ws.send(
+          JSON.stringify({
+            event: "connect",
+            status: "error",
+          })
+        );
+      }
     },
-    stop: () => {
+    connection: async () => {
+      const state = await client.getState();
+      const info = client.info;
+
+      return {
+        state,
+        info,
+      };
+    },
+    stop: async () => {
+      await coll.update(
+        { botId },
+        { status: "stopped", timeStamp: new Date() }
+      );
+
       client.destroy();
     },
   };

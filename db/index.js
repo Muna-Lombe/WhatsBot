@@ -6,6 +6,8 @@ const redisClient = redis.createClient();
 const fs = require("fs");
 const path = require("path");
 const sqlite = require("sqlite3");
+const { ServerApiVersion } = require("mongodb");
+const { specialChars } = require("../helpers/dataParsers");
 
 /**
  *
@@ -16,6 +18,7 @@ module.exports = async function (collection) {
   function getCollection(conn) {
     return {
       create: (data) => conn.create(data),
+      insert: (data) => conn.insert(data),
       read: (key) => conn.read(key),
       update: (key, value) => conn.update(key, value),
       delete: (key) => conn.delete(key),
@@ -27,6 +30,7 @@ module.exports = async function (collection) {
    */
   async function connectToSqlite() {
     const sqliteClient = new SqliteConnection("whatsbot", collection);
+    await sqliteClient.connect();
     return {
       conn: sqliteClient,
       /**
@@ -36,7 +40,7 @@ module.exports = async function (collection) {
        * @prop {function} update - Update a record in the collection.
        * @prop {function} delete - Delete a record from the collection.
        */
-      coll: getCollection(fsClient),
+      coll: getCollection(sqliteClient),
     };
   }
   /**
@@ -45,6 +49,7 @@ module.exports = async function (collection) {
    */
   async function connectToFS() {
     const fsClient = new FsConnection("whatsbot", collection);
+    await fsClient.connect();
     return {
       conn: fsClient,
       /**
@@ -67,6 +72,7 @@ module.exports = async function (collection) {
     //   console.error("Redis error:", error);
     // });
     const redisClient = new RedisConnection("whatsbot", collection);
+    await redisClient.connect();
     return {
       conn: redisClient,
       /**
@@ -90,26 +96,34 @@ module.exports = async function (collection) {
       //   useNewUrlParser: true,
       //   useUnifiedTopology: true,
       // });
-      let conn = new MongoConnection(mongodb_url, "whatsbot", collection);
+      const mongoClient = new MongoConnection(
+        mongodb_url,
+        "whatsbot",
+        collection
+      );
+      await mongoClient.connect();
+
       return {
-        conn,
+        conn: mongoClient,
         /**
-         * @type {MongoCollection}
+         * @type {MongoConnection}
          * @property {function} create - Create a new record in the collection.
          * @property {function} read - Read data from the collection.
          * @property {function} update - Update a record in the collection.
          * @property {function} delete - Delete a record from the collection.
          */
-        coll: conn.collection, //.db("whatsbot").collection(collection),
+        coll: getCollection(mongoClient), //.db("whatsbot").collection(collection),
       };
     } catch (e) {
       return {};
     }
   }
-  return connectToFS();
+  return await connectToSqlite();
 };
 
 class RedisConnection {
+  #schema;
+  #validate;
   constructor(db_name, collection_name) {
     // Connect to a local Redis server
     this.client = redis.createClient({
@@ -130,13 +144,30 @@ class RedisConnection {
   async close() {
     this.client.disconnect();
   }
+  /**
+   * Create a new record in the collection.
+   * @param {object} data - The data to be stored.
+   * @returns {void}
+   */
+  async create(data) {
+    this.#schema = Object.entries(data)
+      .map(([k, v], x) => k + " " + v.toUpperCase())
+      .join(",");
+    this.#validate = (data) => {
+      return Object.keys(data).every((key) => {
+        return this.#schema.includes(key);
+      });
+    };
+  }
 
   /**
    * Create a new record in Redis.
    *
    * @param {jsonObject} value - The value to be associated with the key.
    */
-  async create(value) {
+  async insert(value) {
+    if (!this.#validate(value)) throw new Error("Invalid data");
+
     const { datalist } = await this.read();
     datalist.push(value);
 
@@ -220,24 +251,31 @@ class RedisConnection {
 }
 
 class MongoConnection {
+  #schema;
+  #validate;
   constructor(mongodb_url, db_name, collection_name) {
     this.mongodb_url = mongodb_url;
     this.db_name = db_name;
     this.collection_name = collection_name;
     this.client = null;
     this.collection = null;
+
+    this.client = new MongoClient(this.mongodb_url, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      },
+    });
   }
 
   async connect() {
     try {
-      this.client = await MongoClient.connect(this.mongodb_url, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      });
+      await this.client.connect();
       this.collection = this.client
         .db(this.db_name)
         .collection(this.collection_name);
-      return { conn: this.client, coll: this.collection };
+      console.log("connected...", this.collection.dbName);
     } catch (e) {
       console.error(`Error connecting to MongoDB: ${e}`);
       return {};
@@ -250,31 +288,63 @@ class MongoConnection {
     }
   }
 
-  create(value) {
+  /**
+   * Create a new record in the collection.
+   * @param {object} data - The data to be stored.
+   * @returns {void}
+   */
+  async create(data) {
+    this.#schema = Object.entries(data)
+      .map(([k, v], x) => k + " " + v.toUpperCase())
+      .join(",");
+    this.#validate = (data) => {
+      return Object.keys(data).every((key) => {
+        return this.#schema.includes(key);
+      });
+    };
+  }
+  /**
+   * Inserts a record into the collection.
+   * @param {Object} data
+   * @returns {Promise}
+   */
+  insert(data) {
+    if (!this.#validate(data)) throw new Error("Invalid data");
+
     if (this.collection) {
-      this.collection.insertOne(value);
+      console.log("create document...", data);
+      return this.collection.insertOne(data);
     }
+    return null;
   }
 
   read(key) {
     if (this.collection) {
-      return this.collection.findOne(key);
+      console.log("reading document...", key);
+
+      return this.collection.findOne(key).then((res) => ({ data: [res] }));
     }
     return null;
   }
 
   update(key, value) {
     if (this.collection) {
-      this.collection.updateOne(key, {
+      console.log("updating document...", key, value);
+
+      return this.collection.updateOne(key, {
         $set: { [Object.keys(value)[0]]: value },
       });
     }
+    return null;
   }
 
   delete(key) {
     if (this.collection) {
-      this.collection.deleteOne({ key });
+      console.log("deleting document...", key);
+
+      return this.collection.deleteOne({ key });
     }
+    return null;
   }
 
   exists(key) {
@@ -293,6 +363,8 @@ class MongoConnection {
 class FsConnection {
   #collection;
   #db_name;
+  #schema;
+  #validate;
 
   constructor(db_name, collection_name) {
     this.#db_name = db_name;
@@ -319,6 +391,20 @@ class FsConnection {
 
     return path.join(basepath, `/${this.#db_name}_${collection_name}.json`);
   }
+  async connect() {
+    try {
+      if (!fs.existsSync(this.#_get_file_path(collection_name))) {
+        fs.writeFileSync(
+          this.#_get_file_path(collection_name),
+          JSON.stringify([])
+        );
+      }
+      console.log("connected...", this.#db_name);
+    } catch (e) {
+      console.error(`Error connecting to MongoDB: ${e}`);
+      return {};
+    }
+  }
 
   close() {
     // return fs.close();
@@ -326,20 +412,33 @@ class FsConnection {
 
   /**
    * Create a new record in the collection.
-   *
-   * @param {string} key - The key to set to.
    * @param {object} data - The data to be stored.
    * @returns {void}
    */
-  create(data) {
-    console.log("log this data", data);
+  async create(data) {
+    this.#schema = Object.entries(data)
+      .map(([k, v], x) => k + " " + v.toUpperCase())
+      .join(",");
+    this.#validate = (data) => {
+      return Object.keys(data).every((key) => {
+        return this.#schema.includes(key);
+      });
+    };
+  }
+  /**
+   * Inserts a record into the collection.
+   * @param {Object} data
+   * @returns {Promise}
+   */
+  async insert(data) {
+    if (!this.#validate(data)) throw new Error("Invalid data");
     const file_path = this.#_get_file_path();
     const { datalist } = this.read();
     data.id ||= datalist.length + 1;
     datalist.push(data);
-    console.log("log this datalist", datalist);
 
     fs.writeFileSync(file_path, JSON.stringify(datalist));
+    return data;
   }
 
   /**
@@ -348,7 +447,7 @@ class FsConnection {
    * @param {string} key - The key to read.
    * @returns {json} The list of records.
    */
-  read(key) {
+  async read(key) {
     const file_path = this.#_get_file_path();
     try {
       const datalist = JSON.parse(fs.readFileSync(file_path, "utf8"));
@@ -377,7 +476,7 @@ class FsConnection {
    * @param {object} - The new value to set.
    * @returns {void}
    */
-  update(key, value) {
+  async update(key, value) {
     const file_path = this.#_get_file_path();
     const { data, datalist, idx } = this.read(key);
     const updated_data = {
@@ -386,6 +485,7 @@ class FsConnection {
     };
     datalist[idx] = updated_data;
     fs.writeFileSync(file_path, JSON.stringify(datalist));
+    return value;
   }
 
   /**
@@ -395,7 +495,7 @@ class FsConnection {
    * @param {object} key - The key to find the record to delete.
    * @returns {void}
    */
-  delete(key) {
+  async delete(key) {
     const file_path = this.#_get_file_path(this.#collection);
     const { datalist: existing_data } = this.read(this.#collection);
     const marker = Object.keys(key)[0];
@@ -404,6 +504,7 @@ class FsConnection {
     );
 
     fs.writeFileSync(file_path, JSON.stringify(updated_data));
+    return key;
     // fs.unlinkSync(file_path);
   }
 }
@@ -421,6 +522,7 @@ class SqliteConnection {
   constructor(db_name, collection_name) {
     this.#db_name = db_name;
     this.#collection = collection_name;
+    this.db = null;
 
     // initialze sqlitedb
     this.db = new sqlite.Database(
@@ -433,6 +535,90 @@ class SqliteConnection {
         console.log("Connected to the SQLite database.");
       }
     );
+
+    this.db.create = function (data) {
+      var that = this;
+      data = specialChars.serialize(data);
+      const schema = Object.entries(data)
+        .map(([k, v], x) => k + " " + v.toUpperCase())
+        .join(",");
+
+      that.run(
+        `CREATE TABLE IF NOT EXISTS ${collection_name} (id INTEGER PRIMARY KEY,${schema})`
+      );
+      return new Promise(function (resolve, reject) {
+        that.all(
+          "SELECT * FROM sqlite_master WHERE type='table' AND name=?",
+          [collection_name],
+          function (error, rows) {
+            if (error) reject(error);
+            else resolve({ data: rows });
+          }
+        );
+      });
+    };
+    this.db.insert = function (data) {
+      var that = this;
+
+      data = specialChars.serialize(data);
+      return new Promise(function (resolve, reject) {
+        that.run(
+          `INSERT INTO ${collection_name} (${Object.keys(data).join(
+            ","
+          )}) VALUES (${Object.values(data)
+            .map((v) => "?")
+            .join(",")})`,
+          [...Object.values(data)],
+          function (err) {
+            var localThis = this;
+            if (err) {
+              reject(err);
+            }
+            resolve({
+              data: specialChars.deserialize({
+                id: localThis?.lastID || 1,
+                ...data,
+              }),
+            });
+          }
+        );
+      });
+    };
+
+    this.db.query = function (sql, params) {
+      var that = this;
+      params = specialChars.serialize(params);
+
+      return new Promise(function (resolve, reject) {
+        that.all(sql, params, function (error, rows) {
+          if (error) reject(error);
+          // console.log("rows", rows);
+          else rows = specialChars.deserialize(rows);
+          resolve({ data: rows });
+        });
+      });
+    };
+
+    this.db.update = function (sql, params) {
+      var that = this;
+      params = specialChars.serialize(params);
+
+      return new Promise(function (resolve, reject) {
+        that.run(sql, params, function (error) {
+          if (error) reject(error);
+          else resolve({ data: this.get(this.lastID, (err, row) => {}) });
+        });
+      });
+    };
+    this.db.delete = function (sql, params) {
+      var that = this;
+      return new Promise(function (resolve, reject) {
+        that.run(sql, params, function (error) {
+          if (error) reject(error);
+          else resolve({ data: { changes: that.changes } });
+        });
+      });
+    };
   }
 
   /**
@@ -442,85 +628,152 @@ class SqliteConnection {
    * @returns {string} The file path.
    */
   #_get_file_path(collection_name = this.#collection) {
-    const basepath =
-      "/home/muna/code/Muna-Lombe/tutorials/javascript/console-apps/whatsapp/using_puppeteer/WhatsBot/db/persisted";
+    const basepath = __dirname;
 
-    return path.join(basepath, `/${this.#db_name}_${collection_name}.json`);
+    return path.join(basepath, `/persisted/${this.#db_name}.db`);
   }
 
-  close() {
+  async connect() {
     // return fs.close();
-    return this.db.close();
+    await this.db.wait(() => {});
   }
-
+  async close() {
+    await this.db.close(() => {});
+  }
   /**
-   * Create a new record in the collection.
-   *
-   * @param {string} key - The key to set to.
+   * Create a schema the collection.
    * @param {object} data - The data to be stored.
-   * @returns {void}
+   * @returns {Promise<void>}
    */
-  create(data) {
-    this.db.serialize(() => {
-      this.db.run(
-        `CREATE TABLE IF NOT EXISTS ${
-          this.#collection
-        } (id INTEGER PRIMARY KEY, name TEXT, number TEXT)`
-      );
-      this.db.run(
-        `INSERT INTO ${this.#collection} (name, number) VALUES (?, ?)`,
-        [data.name, data.number],
-        function (err) {
-          if (err) {
-            return console.log(err.message);
-          }
-          // get the last insert id
-          console.log(`A row has been inserted with rowid ${this.lastID}`);
-        }
-      );
-    });
+  async create(schema) {
+    // this.db.serialize(() => {
+    // this.db.run(
+    //   `CREATE TABLE IF NOT EXISTS ${this.#collection} (id INTEGER PRIMARY KEY, userId TEXT, hashedPassWord TEXT, phoneNumberId TEXT, timestamp TEXT)`
+    // );
+    return this.db.create(schema);
+  }
+  /**
+   * Inserts a record into the collection.
+   * @param {Promise<object>} data - The data to insert into a new record.
+   * @returns {Promise<object>} {data} - An object of the new record.
+   */
+  async insert(data) {
+    return this.db.insert(data);
+    // return this.db.run(
+    //   `INSERT INTO ${this.#collection} (userId, hashedPassWord, timestamp) VALUES (?, ?, ?)`,
+    //   [data.userId, data.hashedPassWord, data.timestamp],
+    //   function (err) {
+    //     if (err) {
+    //       return console.log(err.message);
+    //     }
+    //     // get the last insert id
+    //     console.log(`A row has been inserted with rowid ${that.lastID}`);
+    //     return this.get(this.lastID, (err, row)=>{})
+    //   }
+    // );
+    // });
   }
 
   /**
    * Read data from the collection.
    *
-   * @param {string} key - The key to read.
-   * @returns {json} The list of records.
+   * @param key {string} key - The key to read.
+   * @returns {Promise<object>} {data[]} An array of records.
    */
-  read(key) {
-    this.db.serialize(() => {
-      this.db.each(
-        `SELECT id, name, number FROM ${this.#collection}`,
-        (err, row) => {
-          if (err) {
-            console.error(err.message);
-          }
-          console.log(row.id + "\t" + row.name + "\t" + row.number);
-        }
-      );
-    });
-  }
+  async read(key) {
+    const queryOne = [
+      `SELECT * FROM ${this.#collection} WHERE ${
+        Object.keys(key || {})[0]
+      } = ?`,
+      [Object.values(key || {})[0]],
+    ];
+    const queryAll = `SELECT * FROM ${this.#collection}`;
 
+    const result = key
+      ? await this.db.query(queryOne[0], queryOne[1])
+      : await this.db.query(queryAll, []);
+    // const result =
+    //   // this.db.serialize(() => {
+    //   this.db.query(
+    //     `SELECT * FROM ${this.#collection} WHERE ${Object.keys(key)[0]} = ?`,
+    //     [Object.values(key)[0]]
+    //   )
+    // console.log('key', result)
+    return result;
+  }
+  /**
+   * Upsert a record in the collection.
+   *
+   * @param key {object} - The key to upsert.
+   * @param value {object} - The new value to set.
+   * @returns {Promise<object>} - {data} - The data of the upserted record.
+   */
+  async upsert(key, value) {
+    const upserted = {};
+    const upsertOne = [
+      `UPDATE SET ${Object.keys(value)[0]} = ? WHERE id = ?
+  VALUES('Alice','704-555-1212','2018-05-08')
+  ON CONFLICT(name) DO INSERT INTO ${this.#collection} (${
+        Object.keys(value)[0]
+      }) VALUES (?)`[
+        // `UPDATE IIF(EXISTS(SELECT 1 FROM ${this.#collection} WHERE id = ?), ${this.#collection} SET ${Object.keys(value)[0]} = ? WHERE id = ?, INSERT INTO ${this.#collection} (userId) VALUES (?)) `,
+        // `INSERT INTO ${this.#collection} (userId) VALUES (?)`,
+        (Object.values(value)[0], key?.id)
+      ],
+    ];
+    const upsertAll = [
+      `UPDATE IIF(EXISTS(SELECT 1 FROM ${this.#collection}), ${
+        this.#collection
+      } SET ${Object.keys(value)[0]} = ? WHERE id = ?, INSERT INTO ${
+        this.#collection
+      } (userId) VALUES (?)) `,
+      `INSERT INTO ${this.#collection} (userId) VALUES (?)`,
+      [Object.values(value)[0]],
+    ];
+
+    // this.db.serialize(() => {
+    return key
+      ? await this.db.update(upsertOne[0], upsertOne[1])
+      : await this.db.update(upsertAll[0], upsertAll[1]);
+  }
   /**
    * Update a record in the collection.
    *
-   * @param {object} - The key to update.
-   * @param {object} - The new value to set.
-   * @returns {void}
+   * @param key {object} - The key to update.
+   * @param value {object} - The new value to set.
+   * @returns {Promise<object>} - {data} - The data of the updated record.
    */
-  update(key, value) {
-    this.db.serialize(() => {
-      this.db.run(
-        `UPDATE ${this.#collection} SET name = ? WHERE id = ?`,
-        [value.name, key.id],
-        function (err) {
-          if (err) {
-            return console.error(err.message);
-          }
-          console.log(`Row(s) updated: ${this.changes}`);
-        }
-      );
-    });
+  async update(key, value) {
+    const updated = {};
+
+    const updateOne = [
+      `UPDATE ${this.#collection} SET ${
+        Object.keys(value)[0]
+      } = ? WHERE id = ?`,
+      [Object.values(value)[0], key?.id],
+    ];
+    const updateAll = [
+      `UPDATE ${this.#collection} SET ${Object.keys(value)[0]} = ?`,
+      [Object.values(value)[0]],
+    ];
+    // this.db.serialize(() => {
+    return key
+      ? await this.db.update(updateOne[0], updateOne[1])
+      : await this.db.update(updateAll[0], updateAll[1]);
+
+    // this.db.run(
+    //   `UPDATE ${this.#collection} SET userId = ? WHERE id = ?`,
+    //   [value.userId, key.id],
+    //   function (err) {
+    //     if (err) {
+    //       return console.error(err.message);
+    //     }
+    //     console.log(`Row(s) updated: ${this.changes}`);
+    //     updated["data"] = {id:key.id, userId: value.userId}
+    //   }
+    // );
+    // });
+    // return updated;
   }
 
   /**
@@ -528,20 +781,17 @@ class SqliteConnection {
    *
    * @param {string} collection_name - The name of the collection.
    * @param {object} key - The key to find the record to delete.
-   * @returns {void}
+   * @returns {Promise<void>}
    */
-  delete(key) {
-    this.db.serialize(() => {
-      this.db.run(
-        `DELETE FROM ${this.#collection} WHERE id = ?`,
-        [key.id],
-        function (err) {
-          if (err) {
-            return console.error(err.message);
-          }
-          console.log(`Row(s) deleted ${this.changes}`);
-        }
-      );
-    });
+  async delete(key) {
+    // this.db.serialize(() => {
+    this.db.delete(`DELETE FROM ${this.#collection} WHERE id = ?`, [key.id]);
+    // this.db.run(`DELETE FROM ${this.#collection} WHERE id = ?`, [key.id], function (err) {
+    //   if (err) {
+    //     return console.error(err.message);
+    //   }
+    //   console.log(`Row(s) deleted ${this.changes}`);
+    // });
+    // });
   }
 }

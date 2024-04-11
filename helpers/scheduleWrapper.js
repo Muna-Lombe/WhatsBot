@@ -76,6 +76,7 @@ const extractParts = (partful) => {
         return part;
       }
       if (isDate(part)) {
+        let d = new Date();
         const date = isDate(part);
         const [day, month, _] = [date.getDate(), date.getMonth() + 1];
         return `[${day}, ${month}]`;

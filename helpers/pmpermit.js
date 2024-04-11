@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const database = require("../db");
+const { pmpermitsDb } = require("../services");
 
 /**
  * Inserts a new document into the "pmpermit" collection.
@@ -10,9 +11,9 @@ const database = require("../db");
  * @returns {Promise<boolean>} - A promise that resolves to true if the document was inserted successfully, or false if an error occurred.
  */
 async function insert(id) {
-  let { conn, coll } = await database("pmpermit");
+  let { conn, coll } = await pmpermitsDb;
   try {
-    await coll.create({ number: id, times: 1, permit: false });
+    await coll.insert({ number: id, times: 1, permit: false + "" });
     return true;
   } catch (error) {
     return false;
@@ -30,9 +31,9 @@ async function insert(id) {
  * @returns {Promise<boolean>} - A promise that resolves to true if the update is successful, false otherwise.
  */
 async function updateviolant(id, timesvio) {
-  let { conn, coll } = await database("pmpermit");
+  let { conn, coll } = await pmpermitsDb;
   try {
-    await coll.update({ number: id }, { $set: { times: timesvio } });
+    await coll.update({ number: id }, { times: timesvio });
     return true;
   } catch (error) {
     return false;
@@ -52,10 +53,10 @@ async function updateviolant(id, timesvio) {
  * If the data does not exist or does not have a permit, the object will have a "found" property set to false.
  */
 async function read(id) {
-  let { conn, coll } = await database("pmpermit");
+  let { conn, coll } = await pmpermitsDb;
   try {
     let data = await coll.read({ number: id });
-    if (data && data.permit) {
+    if (data && data[0].permit) {
       // save the cache for later usage
       fs.writeFileSync(
         path.join(__dirname, `../cache/${id}.json`),
@@ -79,11 +80,11 @@ async function read(id) {
  */
 
 async function permit(id) {
-  let { conn, coll } = await database("pmpermit");
+  let { conn, coll } = await pmpermitsDb;
   try {
     let res = await coll.update({ number: id }, { times: 1, permit: true });
     if (!res?.matchedCount)
-      await coll.create({ number: id, times: 1, permit: true });
+      await coll.insert({ number: id, times: 1, permit: true });
     fs.writeFileSync(
       path.join(__dirname, `../cache/${id}.json`),
       JSON.stringify({ found: true, number: id, times: 1, permit: true })
@@ -105,7 +106,7 @@ async function permit(id) {
  * @returns {boolean} - Returns true if the cache file and permit status were successfully deleted, false otherwise.
  */
 async function deleteCacheAndPermit(id) {
-  let { conn, coll } = await database("pmpermit");
+  let { conn, coll } = await pmpermitsDb;
   try {
     await coll.update({ number: id }, { times: 1, permit: false });
     try {
@@ -128,7 +129,7 @@ async function deleteCacheAndPermit(id) {
  * @returns {boolean} - Returns true if the permit status was successfully updated and the cache file was deleted, false otherwise.
  */
 async function nopermit(id) {
-  let { conn, coll } = await database("pmpermit");
+  let { conn, coll } = await pmpermitsDb;
   try {
     await coll.update({ number: id }, { times: 1, permit: false });
 

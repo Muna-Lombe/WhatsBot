@@ -19,11 +19,14 @@ const {
   isDay,
   isDate,
   format,
+  exampleFormat,
+  scheduleParts,
+  types,
   isPeriod,
   isTimePeriod,
   isDays,
 } = require("../helpers/cronUtils");
-const { botMsg } = require("../helpers/messageUtils");
+const { botMsg, msgType } = require("../helpers/messageUtils");
 const { INPUTSTATETYPES } = require("../helpers/commandUtils");
 const { boldText, italicsText } = require("../helpers/textUtil");
 
@@ -40,35 +43,6 @@ const sendMessage = async (client, contactId, message) => {
   const chat = await contact.getChat();
 
   chat.sendMessage(botMsg(message));
-};
-
-const exampleFormat = {
-  time: "12am,12pm, 12:00",
-  day: "Monday, tuesday, Wed, thur",
-  date: "12/12/12, 12-12-12, 12.12.12, 12 december 2012",
-  action: "reminder, message",
-  target: "Muna, Tom",
-};
-const scheduleParts = [
-  ["action", "target", "time", "day/date", "message/reminder"],
-  [
-    "action",
-    "target",
-    "time",
-    "day",
-    "days",
-    "date",
-    "period",
-    "message",
-    "reminder",
-  ],
-];
-const types = {
-  action: "a",
-  target: "to",
-  time: "at",
-  "day/date": "on",
-  "message/reminder": ":",
 };
 
 const cronify = (type, str) => {
@@ -90,7 +64,7 @@ const prepareForCronTask = (task) => {
     day ? "day" : date ? "date" : period ? "period" : days ? "days" : "day"
   ] = [period ? "" : "on", ...(day || days || date || period).split(" ")];
   const action = message ? message : reminder;
-  1;
+
   const builtTask = [[...Object.values(rest).flat()], action];
   // console.log("bt", builtTask)
   return builtTask;
@@ -111,62 +85,6 @@ const cronActionMap = {
   send: sendMessage,
   set: sendReminder,
   add: sendMessage,
-};
-
-const msgType = {
-  notify:
-    "Please provide a valid task to schedule. \nUse `!help schedule` for more info.",
-  confirm: ({ action, time, message, dayDatePeriod, custom }) => {
-    const defaultMessage = `${italicsText(time?.key)}: ${time?.value}
-      ${italicsText(dayDatePeriod?.key)}: ${dayDatePeriod?.value}
-      ${italicsText(action?.key)}: ${action?.value}
-      ${italicsText(message?.key)}: '${message?.value}.'
-      `;
-
-    return `${boldText("Please confirm the following task")}:
-      ${
-        custom
-          ? `${italicsText(custom.action)}: ${custom.target}`
-          : defaultMessage
-      }
-      \n\nTo confirm, respond with *yes*. To correct, respond with *edit*. To reject, respond with *no*.`;
-  },
-  update: ({ dayDatePeriod, message }) => {
-    return `okay..., what would you like to change?\n\n
-    📝 *Action*\n
-    👤 *Target*\n
-    ⌚ *Time*\n
-    📅 *${dayDatePeriod}*\n
-    📧 *${message}*\n\n
-    Use *Back* to return to main task.`;
-  },
-  choose: {
-    option: `Please choose an option to confirm, edit or reject the task.\n\nTo confirm, respond with *yes*. To correct, respond with *edit*. To reject, respond with *no*.`,
-    aspect: (aspect) => {
-      return `Please choose what aspect you would like to change?\n\n
-        📝 ${boldText("Action")}\n
-        👤 ${boldText("Target")}*\n
-        ⌚ ${boldText("Time")}\n
-        📅 ${boldText(aspect)}\n
-        📧 ${boldText("Message")}`;
-    },
-  },
-  warning: {
-    invalidType: ({ invalidValue, type, example, task }) => {
-      return `⚠ '${invalidValue}' is not a valid \`${type}\` format\n
-       _example - ${example}_ \n\n
-       -*${type[0].toUpperCase() + type.slice(1)}*:\n
-       _previous ${task.key}_: ${task.value || "19:00"}\n\n
-      Please provide the new ${type} to update or use *Back* to return to main task.`;
-    },
-  },
-  toast: ({ text }) => {
-    return `${text} \n\nOr use *Back* to return to main task.`;
-  },
-  error: {
-    restrictedAction:
-      "*❌ Restricted*\n\nYou are not allowed for perform this action!",
-  },
 };
 
 const getCronParts = (crontask) => {
@@ -738,7 +656,7 @@ const execute = async (client, msg, args) => {
         scheduleParts[0][tskLen] === "message/reminder"
           ? inputStore("schedule").action
           : scheduleParts[0][tskLen] === "day/date"
-          ? isCron(newArgs).toLowerCase()
+          ? isCron(newArgs)?.toLowerCase()
           : scheduleParts[0][tskLen];
       newArgs = cronify(scheduleParts[0][tskLen], newArgs);
 
@@ -927,23 +845,12 @@ const execute = async (client, msg, args) => {
               "Please provide a valid task to schedule. \nUse `!help schedule` for more info."
             )
           );
-
-          // return msg.reply(botMsg("Please provide a task to schedule."));
         }
-        // console.log("task", task);
 
         let [crontask, message] = [
           task.split("\n")[0].split(" "),
           task.split("\n")[1].split(":")[1],
         ];
-
-        // for(let i = 0; i < crontask.length; i++){
-        //   if((crontask[i] === 'from' && isDay(crontask[i+1]) && crontask[i+2] === 'to') || (crontask[i] === 'to' && isDay(crontask[i+1]))){
-        //     const from = crontask[i] === 'to' ? crontask[i-1] : crontask[i+1];
-        //     const to = crontask[i] === 'to' ? crontask[i+1] : crontask[i+3];
-        //     crontask = [...crontask.slice(0,i), from+"-"+to, ...crontask.slice(i+4)]
-        //   }
-        // }
 
         crontask = formatPeriod(crontask);
 

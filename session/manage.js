@@ -19,6 +19,9 @@ let excludedDir = [
   "session-whatsbot/Default/blob_storage",
   "session-whatsbot/Default/Service Worker",
 ];
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 module.exports = {
   clean: function clean() {
@@ -40,7 +43,7 @@ module.exports = {
       }
     } catch (_) {}
   },
-  write: async function write(password, userId) {
+  write: async function write(password, botToken) {
     excludedDir.forEach((dir) => {
       try {
         fs.rmSync(`${base}${dir}/`, { recursive: true });
@@ -52,21 +55,32 @@ module.exports = {
     setPassword(getCipherKey(password));
     await new Promise((resolve) => {
       createEncryptStream(fs.createReadStream(`${__dirname}/temp.zip`))
-        .pipe(fs.createWriteStream(`${__dirname}/../${userId}_session.secure`))
+        .pipe(
+          fs.createWriteStream(`${__dirname}/../${botToken}_session.secure`)
+        )
         .on("finish", () => {
           resolve();
         });
     });
     fs.unlinkSync(`${__dirname}/temp.zip`);
   },
-  replicate: async function replicate(userId) {
+  replicate: async function replicate(botId, botToken, _retries = 0) {
     try {
-      setPassword(getCipherKey(config.session_key));
+      setPassword(getCipherKey(botId || config.session_key));
       // console.log("dirname:",__dirname);
       fs.appendFileSync(`${__dirname}/temp.zip`, ""); //,()=>{console.log("file created")});
 
+      if (!fs.existsSync(`${__dirname}/temp.zip`)) {
+        throw `${__dirname}/temp.zip not found`;
+      } else {
+        console.log(
+          "temp.zip found, \ncreating stream for " +
+            `${__dirname}/../${botToken}_session.secure`
+        );
+      }
+
       await new Promise((resolve) => {
-        fs.createReadStream(`${__dirname}/../${userId}_session.secure`)
+        fs.createReadStream(`${__dirname}/../${botToken}_session.secure`)
           .pipe(
             createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
           )
@@ -74,37 +88,68 @@ module.exports = {
             // console.log("resolving...")
             // console.log("resolved!")
             // const zipfile = new AdmZip(`${__dirname}/temp.zip`);
-            setTimeout(() => {
-              let unzip = new AdmZip(`${__dirname}/temp.zip`); //new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
-              unzip.extractAllToAsync(base, true, false, (err) => {
-                if (err) {
-                  console.log("error caught:", err);
-                }
-              });
-            }, 1000);
+
+            // let delay = 0
+            // while (delay < 1000) {
+            //   delay++
+            // }
+
             resolve();
           });
-      });
+      })
+        .then(async (res) => {
+          // let timeoutCounter = 0;
+          // while (timeoutCounter < (2000+_retries)) {
+          //   timeoutCounter++
+          // }
+          // setTimeout(() => {
+
+          await sleep(2000);
+          console.log("unziping...");
+          let unzip = new AdmZip(`${__dirname}/temp.zip`); //new AdmZip(fs.readFileSync(`${__dirname}/temp.zip`));
+          unzip.extractAllToAsync(base, true, false, (err) => {
+            if (err) {
+              console.log("error caught:", err);
+            }
+          });
+          // }, 5000);
+        })
+        .catch((err) => {
+          console.log("error caught:", err);
+
+          throw err;
+        })
+        .finally(() => {
+          // console.log("finally block");
+          try {
+            console.log("unlinking...");
+            fs.unlinkSync(`${__dirname}/temp.zip`);
+          } catch (_) {}
+        });
 
       // console.log("Session files replicated");
     } catch (error) {
-      throw new Error(
+      console.log(
+        "error caught:",
         `Session file not found, corrupted or password not matched. ${error.toString()}`
       );
-    } finally {
-      try {
-        fs.unlinkSync(`${__dirname}/temp.zip`);
-      } catch (_) {}
+      if (_retries < 10000) {
+        console.log("retrying...");
+        await replicate(botId, botToken, _retries + 1000);
+      } else {
+        console.log("retries limit reached!..");
+        throw new Error(`last caught error: ${error.toString()}`);
+      }
     }
   },
-  fetchSession: async function fetchSession(userId) {
+  fetchSession: async function fetchSession(botId, botToken) {
     try {
       if (process.env.SESSION_URL) {
         let response = await axios.get(process.env.SESSION_URL, {
           responseType: "arraybuffer",
         });
         fs.writeFileSync(
-          `${__dirname}/../${userId}_session.secure`,
+          `${__dirname}/../${botToken}_session.secure`,
           response.data,
           {
             encoding: "binary",

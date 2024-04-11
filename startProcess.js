@@ -1,10 +1,10 @@
 const { replicate, clean, fetchSession } = require("./session/manage");
 
-async function startBot(userId, botId, botClient, ws) {
+async function startBot(botId, botToken, botClient, ws) {
   try {
     clean();
-    await fetchSession(userId);
-    await replicate(userId);
+    await fetchSession(botId, botToken);
+    await replicate(botId, botToken);
     setTimeout(async () => {
       // require("./main");
       await botClient(botId, ws).start();

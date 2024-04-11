@@ -1,20 +1,47 @@
-const { BotFactory } = require("../factories/botFactory");
+const { Client, LocalAuth } = require("whatsapp-web.js");
+const QRCode = require("qrcode");
+const { readdir } = require("fs/promises");
+const { BotClient } = require("../mainly");
+// const { WhatsappWebSession } = require('./WhatsappWebSession')
 
-class BotManager {
+const getDirectories = async (source) =>
+  (await readdir(source, { withFileTypes: true }))
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
+
+class WhatsappSessionManager {
+  sessionIdVsClientInstance = {};
+
   constructor() {
-    this.bots = new Map();
+    this.sessionIdVsClientInstance = {};
+    return this;
   }
 
-  registerBot(user, ws) {
-    const bot = BotFactory.createBot(user, ws);
-    this.bots.set(user, bot);
+  createWAClient = (sessionId, qrGenerationCallback, readyInstanceCallback) => {
+    return new WhatsappWebSession(
+      sessionId,
+      qrGenerationCallback,
+      readyInstanceCallback
+    );
+  };
+
+  async restorePreviousSessions(excludedSessionIds = []) {
+    const directoryNames = await getDirectories("../.wwebjs_auth");
+    const sessionIds = directoryNames.map((name) => name.split("-")[1]);
+
+    sessionIds.forEach((sessionId) => {
+      if (excludedSessionIds.includes(sessionId)) return;
+      this.createWAClient(sessionId);
+    });
   }
 
-  getBot(user) {
-    return this.bots.get(user);
-  }
+  getClientFromSessionId = (sessionId) => {
+    // {sessionId:ClientInstance}
+    return this.sessionIdVsClientInstance[sessionId];
+  };
 }
 
+const singularWhatsappSessionManager = new WhatsappSessionManager();
 module.exports = {
-  BotManager,
+  BotSessionManager: singularWhatsappSessionManager,
 };

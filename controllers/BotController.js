@@ -6,11 +6,63 @@ const {
 } = require("../session/genTokenFromWebWithDownload");
 const { BotClient } = require("../mainly");
 const { startBot, stopBot } = require("../startProcess");
+const { botsDb } = require("../services");
 
 class BotController {
   static BotClient = BotClient;
   static startBot = startBot;
 
+  static async healthCheck(socket, message) {
+    const { conn, coll } = await botsDb;
+
+    //check bot status and restart if should be running
+    try {
+      const { botSessions } = message;
+      const { data } = await coll.read();
+      botSessions.forEach(async (botSess, x) => {
+        if (
+          data[x].status === "running" &&
+          (botSess.lastActionTriggered === "connect" ||
+            botSess.lastActionTriggered === "register")
+        ) {
+          // if is running
+          console.log("do nothing");
+          return;
+        } else if (
+          data[x].status === "stopped" &&
+          botSess.lastActionTriggered === "disconnect"
+        ) {
+          // if is stopped
+          console.log("do nothing");
+          return;
+        } else if (
+          data[x].status === "stopped" &&
+          (botSess.lastActionTriggered === "connect" ||
+            botSess.lastActionTriggered === "register")
+        ) {
+          // if should be running
+          await startBot(
+            botSess.botId,
+            botSess.botId.split("_")[2],
+            BotClient,
+            socket
+          );
+        } else if (
+          data[x].status === "running" &&
+          botSess.lastActionTriggered === "disconnect"
+        ) {
+          // if should be stopped
+          await stopBot(botId, botId.split("_")[2], BotClient);
+        } else {
+          // if something else
+          console.log("doing nothing again...");
+        }
+      });
+      socket.send(JSON.stringify({ event: "healthCheck", botArray: data }));
+    } catch (error) {
+      console.log("error in healthCheck:", error);
+    }
+  }
   static async register(socket, message) {
     try {
       // socket.send("waiting to register...");
@@ -38,7 +90,7 @@ class BotController {
       setTimeout(() => {
         Promise.all([
           new Promise(async (resolve, reject) => {
-            await startBot(botId.split("_")[1], botId, BotClient, socket);
+            await startBot(botId, botId.split("_")[2], BotClient, socket);
 
             resolve();
           }),

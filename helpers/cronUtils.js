@@ -73,7 +73,17 @@ const isDate = (string) => {
 
   // October 20
 
-  const date = new Date(string);
+  // regex to match this format: dd/mm/yyyy
+  const reg = /^([0-3][0-9])[-/. ]([0-1][0-2])[-/. ]([0-9]{4})$/;
+  const dateRegex = new RegExp(reg.source, reg.flags);
+
+  if (dateRegex.test(string)) return false;
+
+  const correctedDate = string.split(/[-/. ]/);
+  const date = new Date(
+    `${correctedDate[2]}-${correctedDate[1]}-${correctedDate[0]}`
+  );
+  // const date = new Date(string);
 
   return date.toString() !== "Invalid Date" && date;
 };
@@ -258,6 +268,34 @@ const format = {
     return convertTo24HourIfExist(tf);
   },
 };
+const exampleFormat = {
+  time: "12am,12pm, 12:00",
+  day: "Monday, tuesday, Wed, thur",
+  date: "12/12/12, 12-12-12, 12.12.12, 12 december 2012",
+  action: "reminder, message",
+  target: "Muna, Tom",
+};
+const scheduleParts = [
+  ["action", "target", "time", "day/date", "message/reminder"],
+  [
+    "action",
+    "target",
+    "time",
+    "day",
+    "days",
+    "date",
+    "period",
+    "message",
+    "reminder",
+  ],
+];
+const types = {
+  action: "a",
+  target: "to",
+  time: "at",
+  "day/date": "on",
+  "message/reminder": ":",
+};
 
 module.exports = {
   isTimeFormat,
@@ -278,4 +316,7 @@ module.exports = {
   validCronWords,
   validateCron,
   format,
+  exampleFormat,
+  scheduleParts,
+  types,
 };

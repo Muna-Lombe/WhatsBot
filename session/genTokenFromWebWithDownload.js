@@ -12,6 +12,7 @@ const app = require("express")();
 const axios = require("axios");
 const { server_url } = require("../config");
 const { startBot } = require("../startProcess");
+const { botsDb } = require("../services");
 
 async function generateNewToken({ userId, http, BotClient, ws }) {
   try {
@@ -135,13 +136,16 @@ async function generateNewToken({ userId, http, BotClient, ws }) {
         );
       }
     });
-    client.on("ready", () => {
+    client.on("ready", async () => {
+      const { conn, coll } = await botsDb;
+
       client.destroy();
       console.log("Please wait...");
       // wait because filesystem is busy
       setTimeout(async () => {
         console.log("Session has been created");
-        await write(token, userId);
+        await write(botId, token);
+        await coll.insert({ botId, status: "running", timestamp: new Date() });
         if (http?.hasOwnProperty("req")) {
           await axios.post("http://localhost:5000/bot/message", {
             event: "connect",
@@ -167,7 +171,7 @@ async function generateNewToken({ userId, http, BotClient, ws }) {
         await unlink(
           path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`)
         );
-        startBot(botId.split("_")[1], botId, BotClient, ws);
+        startBot(botId, botId.split("_")[2], BotClient, ws);
         // app.response.download("./session.secure");
       }, 3000);
     });
