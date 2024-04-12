@@ -14,10 +14,10 @@ const { server_url } = require("../config");
 const { startBot } = require("../startProcess");
 const { botsDb } = require("../services");
 
-async function generateNewToken({ userId, http, BotClient, ws }) {
+async function generateNewToken({ userId, http, ws }) {
   try {
-    clean();
-    console.log("cleaned..!");
+    // clean();
+    console.log("commented out cleaning in tokenGen..!");
     userId = userId.replace(" ", "-");
     const token =
       Math.random().toString(36).substring(2, 15) +
@@ -171,27 +171,13 @@ async function generateNewToken({ userId, http, BotClient, ws }) {
         await unlink(
           path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`)
         );
-        startBot(botId, botId.split("_")[2], BotClient, ws);
+
+        startBot(botId, botId.split("_")[2], ws);
         // app.response.download("./session.secure");
       }, 3000);
     });
 
-    return {
-      respond: (url) => {
-        console.log("responding to ", url);
-        return fetch(url, {
-          method: "POST",
-          body: JSON.stringify({
-            userId,
-            botId,
-            message: "Bot registered!",
-          }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-      },
-    };
+    return { client };
   } catch (error) {
     console.log("", error);
   }

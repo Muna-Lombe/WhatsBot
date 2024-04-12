@@ -4,13 +4,14 @@ const { readFileSync } = require("fs");
 const {
   registerBotSession,
 } = require("../session/genTokenFromWebWithDownload");
-const { BotClient } = require("../mainly");
+const { BotClientInstance } = require("../mainly");
 const { startBot, stopBot } = require("../startProcess");
 const { botsDb } = require("../services");
 const { sleep } = require("../helpers/genUtils");
+const { BotSessionManager } = require("../managers/botMangager");
 
 class BotController {
-  static BotClient = BotClient;
+  static BotClient = BotClientInstance;
   static startBot = startBot;
 
   static async healthCheck(socket, message) {
@@ -27,7 +28,13 @@ class BotController {
             botSess.lastActionTriggered === "register")
         ) {
           // if is running
-          console.log("is connected ...do nothing");
+          console.log("is connected ... check connection.");
+          const bot = BotSessionManager.getClientFromBotId(
+            data[x].botId,
+            socket
+          );
+
+          console.log(await bot.connection());
 
           return;
         } else if (
@@ -77,7 +84,12 @@ class BotController {
       setTimeout(() => {
         Promise.all([
           new Promise((resolve, reject) => {
-            registerBotSession({ userId, BotClient, ws: socket });
+            BotSessionManager.createWAClient({
+              userId,
+              ws: socket,
+              register: true,
+            });
+            // registerBotSession({ userId, ws: socket });
             resolve();
           }),
         ]);
@@ -97,7 +109,7 @@ class BotController {
       setTimeout(() => {
         Promise.all([
           new Promise(async (resolve, reject) => {
-            await startBot(botId, botId.split("_")[2], BotClient, socket);
+            await startBot(botId, botId.split("_")[2], socket);
 
             resolve();
           }),
@@ -119,7 +131,7 @@ class BotController {
       setTimeout(() => {
         Promise.all([
           new Promise(async (resolve, reject) => {
-            await stopBot(botId, BotClient);
+            await stopBot(botId, socket);
 
             resolve();
           }),

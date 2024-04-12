@@ -1,21 +1,28 @@
+const { BotSessionManager } = require("./managers/botMangager");
 const { replicate, clean, fetchSession } = require("./session/manage");
 
-async function startBot(botId, botToken, botClient, ws) {
+async function startBot(botId, botToken, ws) {
   try {
-    clean();
+    // clean();
     await fetchSession(botId, botToken);
     await replicate(botId, botToken);
     setTimeout(async () => {
       // require("./main");
-      await botClient(botId, ws).start();
+      const bot = await BotSessionManager.getClientFromBotId({ botId });
+      bot.ws = ws;
+      bot.start();
+
+      // await botClient(botId, ws).start();
     }, 1000);
   } catch (error) {
     console.error("something caught:", error?.message);
   }
 }
-async function stopBot(botId, botClient) {
+async function stopBot(botId, ws) {
   try {
-    await botClient(botId).stop();
+    const bot = await BotSessionManager.getClientFromBotId({ botId });
+    bot.ws = ws;
+    bot.stop();
   } catch (error) {
     console.error("something caught:", error?.message);
   }
