@@ -43,7 +43,7 @@ class BotController {
             botSess.lastActionTriggered === "register")
         ) {
           // if should be running
-          console.log("should be running ...starting...");
+          console.log("should be running ...starting...", botSess);
 
           await startBot(
             botSess.botId,

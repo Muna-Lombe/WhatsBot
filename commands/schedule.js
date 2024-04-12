@@ -451,7 +451,7 @@ const viewCronJobs = async (client, msg, args) => {
   console.log("viewing job");
   const jobs = await tasker.read();
 
-  // console.log("tasks", jobs)
+  console.log("tasks", jobs);
   msg.reply(
     botMsg(
       msgType.toast({
