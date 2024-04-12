@@ -8,7 +8,7 @@ const { BotClientInstance } = require("../mainly");
 const { startBot, stopBot } = require("../startProcess");
 const { botsDb } = require("../services");
 const { sleep } = require("../helpers/genUtils");
-const { BotSessionManager } = require("../managers/botMangager");
+const {BotSessionManager} = require("../managers/botMangager");
 
 class BotController {
   static BotClient = BotClientInstance;
@@ -29,12 +29,12 @@ class BotController {
         ) {
           // if is running
           console.log("is connected ... check connection.");
-          const bot = BotSessionManager.getClientFromBotId(
-            data[x].botId,
-            socket
-          );
+          const bot = BotSessionManager.getClientFromBotId(data[x].botId, socket);
 
-          console.log(await bot.connection());
+          console.log(await bot.connection())
+
+
+
 
           return;
         } else if (
@@ -84,11 +84,7 @@ class BotController {
       setTimeout(() => {
         Promise.all([
           new Promise((resolve, reject) => {
-            BotSessionManager.createWAClient({
-              userId,
-              ws: socket,
-              register: true,
-            });
+            BotSessionManager.createWAClient({userId, ws:socket, register:true});
             // registerBotSession({ userId, ws: socket });
             resolve();
           }),
