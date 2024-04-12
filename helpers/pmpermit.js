@@ -82,7 +82,7 @@ async function read(id) {
 async function permit(id) {
   let { conn, coll } = await pmpermitsDb;
   try {
-    let res = await coll.update({ number: id }, { times: 1, permit: true });
+    let res = await coll.upsert({ number: id }, { times: 1, permit: true });
     if (!res?.matchedCount)
       await coll.insert({ number: id, times: 1, permit: true });
     fs.writeFileSync(

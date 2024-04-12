@@ -33,6 +33,7 @@ const { botMsg } = require("./helpers/messageUtils");
 const { INPUTSTATETYPES } = require("./helpers/commandUtils");
 const { timeStamp } = require("console");
 const { botsDb } = require("./services");
+const { sleep } = require("./helpers/genUtils");
 
 function BotClient(botId, ws) {
   const app = express();
@@ -60,6 +61,10 @@ function BotClient(botId, ws) {
   });
 
   console.log("client initializing...");
+
+  client.on("error", (err) => {
+    console.log("client error", err);
+  });
 
   client.on("message", async (msg) => {
     if (!msg.author && config.pmpermit_enabled === "true") {
@@ -220,31 +225,13 @@ function BotClient(botId, ws) {
     console.log("Client was logged out", reason);
     try {
       await client.destroy();
-      client.initialize();
+      await sleep(1000);
+      await client.initialize();
     } catch (error) {
       logger(client, "Client was logged out, could not reconnect");
     }
   });
 
-  // app.get("/", (req, res) => {
-  //   res.send(
-  //     '<h1>This server is powered by Whatsbot<br><a href="https://github.com/tuhinpal/WhatsBot">https://github.com/tuhinpal/WhatsBot</a></h1>'
-  //   );
-  // });
-
-  // app.get("/api/bot/register", (req, res) => {
-  //   // create a userId_session.secure
-  // });
-
-  // app.use(
-  //   "/public",
-  //   express.static("public"),
-  //   require("serve-index")("public", { icons: true })
-  // ); // public directory will be publicly available
-
-  // app.listen(process.env.PORT || 8080, () => {
-  //   console.log(`Server listening at Port: ${process.env.PORT || 8080}`);
-  // });
   return {
     start: () => {
       try {
@@ -316,7 +303,9 @@ function BotClient(botId, ws) {
         });
       } catch (err) {
         console.log(err);
+
         clearInterval(healthCheck);
+
         botsDb.then(({ conn, coll }) =>
           coll.update({ botId }, { status: "stopped", timeStamp: new Date() })
         );

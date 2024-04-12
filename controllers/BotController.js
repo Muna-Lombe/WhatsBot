@@ -7,6 +7,7 @@ const {
 const { BotClient } = require("../mainly");
 const { startBot, stopBot } = require("../startProcess");
 const { botsDb } = require("../services");
+const { sleep } = require("../helpers/genUtils");
 
 class BotController {
   static BotClient = BotClient;
@@ -26,14 +27,15 @@ class BotController {
             botSess.lastActionTriggered === "register")
         ) {
           // if is running
-          console.log("do nothing");
+          console.log("is connected ...do nothing");
+
           return;
         } else if (
           data[x].status === "stopped" &&
           botSess.lastActionTriggered === "disconnect"
         ) {
           // if is stopped
-          console.log("do nothing");
+          console.log("is stopped ...do nothing");
           return;
         } else if (
           data[x].status === "stopped" &&
@@ -41,17 +43,22 @@ class BotController {
             botSess.lastActionTriggered === "register")
         ) {
           // if should be running
+          console.log("should be running ...starting...");
+
           await startBot(
             botSess.botId,
             botSess.botId.split("_")[2],
             BotClient,
             socket
           );
+          await sleep(1000);
         } else if (
           data[x].status === "running" &&
           botSess.lastActionTriggered === "disconnect"
         ) {
           // if should be stopped
+          console.log("should be stopped ...stopping...");
+
           await stopBot(botId, botId.split("_")[2], BotClient);
         } else {
           // if something else

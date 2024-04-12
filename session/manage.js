@@ -8,6 +8,7 @@ const {
 const crypto = require("crypto");
 const config = require("../config");
 const axios = require("axios");
+const { sleep } = require("../helpers/genUtils");
 require("dotenv").config();
 
 let base = `${__dirname}/../.wwebjs_auth/`;
@@ -19,9 +20,6 @@ let excludedDir = [
   "session-whatsbot/Default/blob_storage",
   "session-whatsbot/Default/Service Worker",
 ];
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 module.exports = {
   clean: function clean() {
