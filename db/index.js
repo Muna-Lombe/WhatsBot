@@ -20,6 +20,7 @@ module.exports = async function (collection) {
       create: (data) => conn.create(data),
       insert: (data) => conn.insert(data),
       read: (key) => conn.read(key),
+      upsert: (key, value) => conn.upsert(key, value),
       update: (key, value) => conn.update(key, value),
       delete: (key) => conn.delete(key),
     };
@@ -37,6 +38,7 @@ module.exports = async function (collection) {
        * @type {SqliteConnection}
        * @prop {function} create - Create a new record in the collection.
        * @prop {function} read - Read data from the collection.
+       * @prop {function} upsert - Update or insert a record in the collection.
        * @prop {function} update - Update a record in the collection.
        * @prop {function} delete - Delete a record from the collection.
        */
@@ -538,6 +540,7 @@ class SqliteConnection {
 
     this.db.create = function (data) {
       var that = this;
+
       data = specialChars.serialize(data);
       const schema = Object.entries(data)
         .map(([k, v], x) => k + " " + v.toUpperCase())
@@ -592,13 +595,25 @@ class SqliteConnection {
       return new Promise(function (resolve, reject) {
         that.all(sql, params, function (error, rows) {
           if (error) reject(error);
-          // console.log("rows", rows);
-          else rows = specialChars.deserialize(rows);
-          resolve({ data: rows });
+          else {
+            rows = specialChars.deserialize(rows);
+            // console.log("rows", rows);
+            resolve({ data: rows });
+          }
         });
       });
     };
+    this.db.upsert = function (sql, params) {
+      var that = this;
+      params = specialChars.serialize(params);
 
+      return new Promise(function (resolve, reject) {
+        that.run(sql, params, function (error) {
+          if (error) reject(error);
+          else resolve({ data: this.get(this.lastID, (err, row) => {}) });
+        });
+      });
+    };
     this.db.update = function (sql, params) {
       var that = this;
       params = specialChars.serialize(params);
@@ -612,10 +627,12 @@ class SqliteConnection {
     };
     this.db.delete = function (sql, params) {
       var that = this;
+
+      console.log("params", params);
       return new Promise(function (resolve, reject) {
         that.run(sql, params, function (error) {
           if (error) reject(error);
-          else resolve({ data: { changes: that.changes } });
+          else resolve({ data: { changes: this.changes } });
         });
       });
     };
@@ -682,16 +699,17 @@ class SqliteConnection {
    */
   async read(key) {
     const queryOne = [
-      `SELECT * FROM ${this.#collection} WHERE ${
-        Object.keys(key || {})[0]
-      } = ?`,
-      [Object.values(key || {})[0]],
+      `SELECT * FROM ${this.#collection}${
+        key ? " WHERE " + Object.keys(key)[0] + "= ?" : ""
+      }`,
+      key ? [Object.values(key || {})[0]] : [],
     ];
     const queryAll = `SELECT * FROM ${this.#collection}`;
 
+    console.log("query", key, queryOne, queryAll);
     const result = key
       ? await this.db.query(queryOne[0], queryOne[1])
-      : await this.db.query(queryAll, []);
+      : await this.db.query(queryAll);
     // const result =
     //   // this.db.serialize(() => {
     //   this.db.query(
@@ -711,14 +729,16 @@ class SqliteConnection {
   async upsert(key, value) {
     const upserted = {};
     const upsertOne = [
-      `UPDATE SET ${Object.keys(value)[0]} = ? WHERE id = ?
-  VALUES('Alice','704-555-1212','2018-05-08')
-  ON CONFLICT(name) DO INSERT INTO ${this.#collection} (${
-        Object.keys(value)[0]
-      }) VALUES (?)`[
+      `UPDATE SET ${Object.keys(value)[0]} = ? 
+        WHERE id = ?
+        VALUES('Alice','704-555-1212','2018-05-08')
+        ON CONFLICT(name) 
+        DO INSERT INTO ${this.#collection} (${Object.keys(value)[0]}) 
+        VALUES (?)`,
+      [
         // `UPDATE IIF(EXISTS(SELECT 1 FROM ${this.#collection} WHERE id = ?), ${this.#collection} SET ${Object.keys(value)[0]} = ? WHERE id = ?, INSERT INTO ${this.#collection} (userId) VALUES (?)) `,
         // `INSERT INTO ${this.#collection} (userId) VALUES (?)`,
-        (Object.values(value)[0], key?.id)
+        (Object.values(value)[0], key?.id),
       ],
     ];
     const upsertAll = [
@@ -733,8 +753,8 @@ class SqliteConnection {
 
     // this.db.serialize(() => {
     return key
-      ? await this.db.update(upsertOne[0], upsertOne[1])
-      : await this.db.update(upsertAll[0], upsertAll[1]);
+      ? await this.db.upsert(upsertOne[0], upsertOne[1])
+      : await this.db.upsert(upsertAll[0], upsertAll[1]);
   }
   /**
    * Update a record in the collection.
@@ -747,10 +767,10 @@ class SqliteConnection {
     const updated = {};
 
     const updateOne = [
-      `UPDATE ${this.#collection} SET ${
-        Object.keys(value)[0]
-      } = ? WHERE id = ?`,
-      [Object.values(value)[0], key?.id],
+      `UPDATE ${this.#collection} SET ${Object.keys(value)[0]} = ? WHERE ${
+        Object.keys(key)[0]
+      } = ?`,
+      [Object.values(value)[0], Object.values(key)[0]],
     ];
     const updateAll = [
       `UPDATE ${this.#collection} SET ${Object.keys(value)[0]} = ?`,
@@ -785,7 +805,9 @@ class SqliteConnection {
    */
   async delete(key) {
     // this.db.serialize(() => {
-    this.db.delete(`DELETE FROM ${this.#collection} WHERE id = ?`, [key.id]);
+    return this.db.delete(`DELETE FROM ${this.#collection} WHERE id = ?`, [
+      key.taskId,
+    ]);
     // this.db.run(`DELETE FROM ${this.#collection} WHERE id = ?`, [key.id], function (err) {
     //   if (err) {
     //     return console.error(err.message);

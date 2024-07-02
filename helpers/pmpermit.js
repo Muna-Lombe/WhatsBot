@@ -19,7 +19,7 @@ async function insert(id) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      // await conn.close();
     }
   }
 }
@@ -39,7 +39,7 @@ async function updateviolant(id, timesvio) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      // await conn.close();
     }
   }
 }
@@ -68,7 +68,7 @@ async function read(id) {
     return { found: false };
   } finally {
     if (conn) {
-      await conn.close();
+      // await conn.close();
     }
   }
 }
@@ -82,6 +82,7 @@ async function read(id) {
 async function permit(id) {
   let { conn, coll } = await pmpermitsDb;
   try {
+    // console.log("coll methods", coll)
     let res = await coll.upsert({ number: id }, { times: 1, permit: true });
     if (!res?.matchedCount)
       await coll.insert({ number: id, times: 1, permit: true });
@@ -95,7 +96,7 @@ async function permit(id) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      // await conn.close();
     }
   }
 }
@@ -118,7 +119,7 @@ async function deleteCacheAndPermit(id) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      // await conn.close();
     }
   }
 }
@@ -143,7 +144,7 @@ async function nopermit(id) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      // await conn.close();
     }
   }
 }

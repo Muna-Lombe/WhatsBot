@@ -8,12 +8,18 @@ const ws = require("ws");
 const { router } = require("./routes");
 const fs = require("fs");
 const { wsRouter } = require("./routes/bot");
+
+// middlewares
 app.use(express.json()); // for application/json
 app.use(express.urlencoded({ extended: true }));
 app.use("/", router);
+
+// start a server and ensure is not listening
+// for web sockets
 const httpServer = createServer(app, {});
 httpServer.removeAllListeners("upgrade");
 
+// start a web socket server and add listeners
 const wss = new ws.Server({ noServer: true });
 wss.on("connection", (socket, req) => {
   socket.on("message", (message) => {
@@ -26,8 +32,10 @@ wss.on("connection", (socket, req) => {
 });
 
 wss.on("error", (error) => console.log("wss error: ", error));
-//
+
 wss.on("close", (error) => console.log("wss close: ", error));
+
+// handle upgrade requests
 httpServer.on("upgrade", (req, socket, head) => {
   const { pathname } = new URL(req.url, `http://${req.headers.host}`);
   if (pathname.startsWith("/api/bot")) {

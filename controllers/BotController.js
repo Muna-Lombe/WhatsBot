@@ -1,19 +1,21 @@
 const { request, response } = require("express");
-const { BotService } = require("../services/BotService");
 const { readFileSync } = require("fs");
-const {
-  registerBotSession,
-} = require("../session/genTokenFromWebWithDownload");
-const { BotClientInstance } = require("../mainly");
+
+const { BotClientInstance } = require("../botClientInstanceCreator");
 const { startBot, stopBot } = require("../startProcess");
 const { botsDb } = require("../services");
 const { sleep } = require("../helpers/genUtils");
-const {BotSessionManager} = require("../managers/botMangager");
+const { BotSessionManager } = require("../managers/botMangager");
 
 class BotController {
   static BotClient = BotClientInstance;
   static startBot = startBot;
 
+  /**
+   * check bot session's health status
+   * @param {*} socket - a websocket(ws) connection
+   * @param {*} message - a message event received from the ws
+   */
   static async healthCheck(socket, message) {
     const { conn, coll } = await botsDb;
 
@@ -21,46 +23,50 @@ class BotController {
     try {
       const { botSessions } = message;
       const { data } = await coll.read();
+      // console.log("data", data)
       botSessions.forEach(async (botSess, x) => {
+        console.log("Checking bot health for:", data);
         if (
-          data[x].status === "running" &&
+          data[x]?.status === "running" &&
           (botSess.lastActionTriggered === "connect" ||
             botSess.lastActionTriggered === "register")
         ) {
           // if is running
           console.log("is connected ... check connection.");
-          const bot = BotSessionManager.getClientFromBotId(data[x].botId, socket);
+          const bot = BotSessionManager.getClientFromBotId(
+            data[x].botId,
+            socket
+          );
+          const { error, state, info } = await bot?.connection(); // check connection
 
-          console.log(await bot.connection())
+          if (!error) {
+            console.log("bot connection status:", state, info);
+          } else {
+            console.log("bot connection status:", error);
 
-
-
+            coll.update({ id: data[x].id }, { status: "stopped" });
+          }
 
           return;
         } else if (
-          data[x].status === "stopped" &&
+          data[x]?.status === "stopped" &&
           botSess.lastActionTriggered === "disconnect"
         ) {
           // if is stopped
-          console.log("is stopped ...do nothing");
+          console.log("is stopped ...needs manual restart!...");
           return;
         } else if (
-          data[x].status === "stopped" &&
+          data[x]?.status === "stopped" &&
           (botSess.lastActionTriggered === "connect" ||
             botSess.lastActionTriggered === "register")
         ) {
           // if should be running
           console.log("should be running ...starting...", botSess);
 
-          await startBot(
-            botSess.botId,
-            botSess.botId.split("_")[2],
-            BotClient,
-            socket
-          );
+          await startBot(botSess.botId, botSess.botId.split("_")[2], socket);
           await sleep(1000);
         } else if (
-          data[x].status === "running" &&
+          data[x]?.status === "running" &&
           botSess.lastActionTriggered === "disconnect"
         ) {
           // if should be stopped
@@ -69,7 +75,7 @@ class BotController {
           await stopBot(botId, botId.split("_")[2], BotClient);
         } else {
           // if something else
-          console.log("doing nothing again...");
+          console.log("no bot sessions exist!...");
         }
       });
       socket.send(JSON.stringify({ event: "healthCheck", botArray: data }));
@@ -77,6 +83,13 @@ class BotController {
       console.log("error in healthCheck:", error);
     }
   }
+
+  /**
+   *
+   * register a new bot session
+   * @param {*} socket - a websocket(ws) connection
+   * @param {*} message - a message event received from the ws
+   */
   static async register(socket, message) {
     try {
       // socket.send("waiting to register...");
@@ -84,7 +97,11 @@ class BotController {
       setTimeout(() => {
         Promise.all([
           new Promise((resolve, reject) => {
-            BotSessionManager.createWAClient({userId, ws:socket, register:true});
+            BotSessionManager.createWAClient({
+              userId,
+              ws: socket,
+              register: true,
+            });
             // registerBotSession({ userId, ws: socket });
             resolve();
           }),
@@ -98,10 +115,15 @@ class BotController {
       });
     }
   }
+  /**
+   *
+   * @param {*} socket - a websocket(ws) connection
+   * @param {*} message - a message event received from the ws
+   */
   static async connect(socket, message) {
     try {
       const { botId } = message;
-      socket.send("waiting to connect...");
+      socket.send(JSON.stringify({ message: "waiting to connect..." }));
       setTimeout(() => {
         Promise.all([
           new Promise(async (resolve, reject) => {
@@ -120,6 +142,11 @@ class BotController {
     }
   }
 
+  /**
+   * disconnect a bot session
+   * @param {*} socket - a websocket(ws) connection
+   * @param {*} message - a message event received from the ws
+   */
   static async disconnect(socket, message) {
     try {
       const { botId } = message;

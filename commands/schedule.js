@@ -25,8 +25,29 @@ const {
   isPeriod,
   isTimePeriod,
   isDays,
+  isMonth,
+  getMonthIdx,
+  validPeriods,
+  validTimes,
 } = require("../helpers/cronUtils");
-const { botMsg, msgType } = require("../helpers/messageUtils");
+const {
+  botMsg,
+  msgType,
+  requiresActionMessage,
+  scheduleTaskMessage,
+  invalidChoiceMessage,
+  choiceMessage,
+  optionMessage,
+  updatedTaskMessage,
+  rejectedTaskMessage,
+  scheduledTaskMessage,
+  confirmMessage,
+  toastMessage,
+  warningMessage,
+  reminderMessage,
+  basicMessage,
+  restrictedActionMessage,
+} = require("../helpers/messageUtils");
 const { INPUTSTATETYPES } = require("../helpers/commandUtils");
 const { boldText, italicsText } = require("../helpers/textUtil");
 
@@ -37,14 +58,14 @@ const { boldText, italicsText } = require("../helpers/textUtil");
  * @param {String} message
  */
 const sendMessage = async (client, contactId, message) => {
-  console.log("Sending message ...");
+  //console.log("Sending message ...");
 
   const contact = await client.getContactById(contactId);
   const chat = await contact.getChat();
-
-  chat.sendMessage(botMsg(message));
+  // basic message
+  chat.sendMessage(basicMessage(message));
 };
-
+// botMsg
 const cronify = (type, str) => {
   const isp =
     str.includes("from") ||
@@ -53,8 +74,21 @@ const cronify = (type, str) => {
 
   return isp ? str : types[type] + " " + str;
 };
+const findBestMatch = (toMatch, matchIn) => {
+  toMatch.toLowerCase();
+  let result = "";
+  for (k of matchIn.keys()) {
+    k.toLowerCase();
+
+    if (k.includes(toMatch)) {
+      return (result = matchIn.get(k));
+    }
+  }
+  return result;
+};
+
 const prepareForCronTask = (task) => {
-  // console.log("reast", task)
+  // //console.log("reast", task)
   const { message, reminder, day, date, period, days, ...rest } = task;
   rest.action = ["a", rest.action];
   rest.target = ["to", rest.target];
@@ -66,13 +100,16 @@ const prepareForCronTask = (task) => {
   const action = message ? message : reminder;
 
   const builtTask = [[...Object.values(rest).flat()], action];
-  // console.log("bt", builtTask)
+  // //console.log("bt", builtTask)
   return builtTask;
 };
 
 const sendReminder = async (client, contactName, message) => {
-  console.log("Sending reminder...");
-  await client.reply(botMsg(message));
+  //console.log("Sending reminder...");
+  await client.reply(
+    // reminder message
+    reminderMessage(message)
+  );
 };
 
 const cronTypeMap = {
@@ -87,10 +124,63 @@ const cronActionMap = {
   add: sendMessage,
 };
 
+const cmdValidFor = {
+  "new task": (arg, currPart, client) => {
+    let validTasktype = ["reminder", "message"].includes(arg);
+    let validContact = client.contacts.has(arg);
+    let validTimeOrPeriod = isTimeFormat(arg) || isTimePeriod(arg);
+    let validDatetype = isDayDate(arg);
+
+    // if(!validContact){
+    //   return {status:"invalid", error: "The target is not a contact"}
+    // }
+    // if(!validTasktype){
+    //   return {status:"invalid", error: "The task is not valid"}
+    // }
+    // if(!validTimeOrPeriod){
+    //   return {status:"invalid", error: "The time period is not valid"}
+    // }
+    // if(!validDatetype){
+    //   return {status:"invalid", error: "The date is not valid"}
+    // }
+    // return {status:"valid", error:null}
+    switch (currPart) {
+      case "action":
+        break;
+      case "day/date":
+        break;
+      case "target":
+        break;
+      case "time":
+        break;
+      case "message/reminder":
+        break;
+
+      default:
+        break;
+    }
+    if (!validContact) {
+      return { status: "invalid", error: "The target is not a contact" };
+    }
+    if (!validTasktype) {
+      return { status: "invalid", error: "The task is not valid" };
+    }
+    if (!validTimeOrPeriod) {
+      return { status: "invalid", error: "The time period is not valid" };
+    }
+    if (!validDatetype) {
+      return { status: "invalid", error: "The date is not valid" };
+    }
+    return { status: "valid", error: null };
+  },
+  "view tasks": (arg, client) => !isNaN(arg),
+  "restart tasks": (arg, client) => !isNaN(arg),
+  "delete task": (arg, client) => !isNaN(arg),
+};
 const getCronParts = (crontask) => {
-  console.log("getCron", crontask);
-  return crontask.reduce((acc, curr, x) => {
-    // console.log('acc:', acc, 'curr:', curr)
+  //console.log("getCron", crontask);
+  const accParts = crontask.reduce((acc, curr, x) => {
+    // //console.log('acc:', acc, 'curr:', curr)
 
     if (!acc["rest"]) {
       acc["rest"] = [];
@@ -104,8 +194,34 @@ const getCronParts = (crontask) => {
     }
 
     if (isTimePeriod(curr)) {
-      // console.log("detected period time")
+      // //console.log("detected period time")
       acc["rest"] = [...acc["rest"], curr];
+      return acc;
+    }
+
+    if (!isNaN(curr) && isMonth(curr + 1)) {
+      // //console.log("detected period time")
+      return acc;
+    }
+    if (isMonth(curr)) {
+      // //console.log("detected period time")
+      if (!isNaN(crontask[x - 1]) && !isNaN(crontask[x + 1])) {
+        acc["rest"] = [
+          ...acc["rest"],
+          crontask[x - 1] +
+            "/" +
+            getMonthIdx(curr).toString() +
+            "/" +
+            crontask[x + 1],
+        ];
+        return acc;
+      }
+      acc["rest"] = [...acc["rest"], getMonthIdx(curr).toString()];
+      return acc;
+    }
+
+    if (!isNaN(curr) || isMonth(curr - 1)) {
+      // //console.log("detected period time")
       return acc;
     }
     if (["to"].includes(curr)) {
@@ -126,6 +242,8 @@ const getCronParts = (crontask) => {
 
     return acc;
   }, {});
+  //console.log("getCronParts acc:", accParts)
+  return accParts;
 };
 
 const formatPeriod = (arr, joined) => {
@@ -158,14 +276,14 @@ const formatPeriod = (arr, joined) => {
         period = [...period, ...t];
       }
     }
-    console.log("period", period);
+    //console.log("period", period);
     return joined ? period.join("") : period;
   }
   return period;
 };
 
 const createCronJob = (msg, task) => {
-  // console.log("ct", task[0]);
+  // //console.log("ct", task[0]);
   const [crontask, message] = task;
   // const [cronAction, n0, cronType, n1, cronTarget, ...rest] = crontask
   // try {
@@ -176,15 +294,15 @@ const createCronJob = (msg, task) => {
     .filter((r) => isDayDate(r) || isTimePeriod(r))
     .join(" ");
 
-  // console.log("cronType:", cronType, "cronTarget:", cronTarget, "rest:", rest);
+  // //console.log("cronType:", cronType, "cronTarget:", cronTarget, "rest:", rest);
 
   if (!validateCron(rest)) {
     throw new Error("Invalid cron task");
   }
 
   const cronExpression = buildExpressionFor(rest);
-  // console.log("task:", crontask, cronExpression, message);
-  console.log("Cron task:", cronType, cronTarget, cronExpression, message);
+  // //console.log("task:", crontask, cronExpression, message);
+  //console.log("Cron task:", cronType, cronTarget, cronExpression, message);
   const formatDayDate = isDate(cronDayDate)
     ? "date"
     : isDay(cronDayDate)
@@ -234,6 +352,7 @@ const createCronJob = (msg, task) => {
         dateArg,
         cronType + ": " + message,
       ],
+      lastAction: "new task",
     },
     {
       action: cronType,
@@ -244,20 +363,18 @@ const createCronJob = (msg, task) => {
       expression: cronExpression,
     }
   );
-
+  // //console.log("in createCronJob", cronType, cronTarget, cronExpression, cronDayDate, formatDayDate[0].toUpperCase() + formatDayDate.slice(1), message)
   msg.reply(
-    botMsg(
-      msgType.confirm({
-        action: {
-          key: "Action",
-          value:
-            cronTypeMap[cronType] +
-            " " +
-            cronType +
-            "  " +
-            (cronTarget ? "to " + cronTarget : "for Me"),
-        },
-        time: { key: "Time", value: cronTimes },
+    // confirm message
+    confirmMessage({
+      store: {
+        action:
+          cronTypeMap[cronType] +
+          " " +
+          cronType +
+          "  " +
+          (cronTarget ? "to " + cronTarget : "for Me"),
+        time: cronTimes,
         message: { key: cronType, value: message },
         dayDatePeriod: {
           key: formatDayDate[0].toUpperCase() + formatDayDate.slice(1),
@@ -269,8 +386,8 @@ const createCronJob = (msg, task) => {
                 .join(" ")
             : cronDayDate,
         },
-      })
-    )
+      },
+    })
   );
   return { cronType, cronTarget, cronExpression, message };
   // } catch (error){
@@ -278,15 +395,15 @@ const createCronJob = (msg, task) => {
   //   throw new Error("Error creating cron job");
   // }
 };
-const editCronJob = (client, msg, args) => {
-  console.log("Editing cron job...");
+const editCronJob = async (client, msg, args) => {
+  //console.log("Editing cron job...");
   if (args?.[1] === "edit" && args?.[2] && args?.[3]) {
-    console.log("updating ", args);
+    //console.log("updating ", args);
     try {
       if (
         !["reminder", "message"].includes(args[2]) &&
         !["reminder", "message"].includes(args[3]) &&
-        !getContactIdByName(args[3]) &&
+        !client.contacts.has(args[3]) &&
         !isCron(args[3])
       ) {
         throw new Error("Invalid cron task");
@@ -314,7 +431,7 @@ const editCronJob = (client, msg, args) => {
             [args[3]]: message,
             complete: true,
           };
-          console.log("store", newStore);
+          //console.log("store", newStore);
         }
 
         updateInputState(
@@ -369,7 +486,7 @@ const editCronJob = (client, msg, args) => {
           };
         }
         if (isTimePeriod(dayDate)) {
-          console.log("period", dayDate);
+          //console.log("period", dayDate);
           const { day: t1, date: t2, days: t3, ...rest } = store;
           newStore = {
             ...rest,
@@ -402,20 +519,20 @@ const editCronJob = (client, msg, args) => {
 
       return scheduleNewTask(client, msg, task);
     } catch (error) {
-      console.log("some err", error);
+      //console.log("some err", error);
       const task = inputStore("schedule");
+
       return msg.reply(
-        botMsg(
-          msgType.warning.invalidType({
-            invalidValue: args[3],
-            type: args[2],
-            example: exampleFormat[args[2]],
-            task: {
-              key: args[2],
-              value: task?.[args[2]],
-            },
-          })
-        )
+        // warning message
+        warningMessage({
+          invalidValue: args.at(-1),
+          type: args[2],
+          task: {
+            key: args[2],
+            value: task?.[args[2]],
+          },
+          exampleFormat: exampleFormat(args[2]),
+        })
       );
     }
   }
@@ -436,48 +553,141 @@ const editCronJob = (client, msg, args) => {
     const title = args[2][0].toUpperCase() + args[2].slice(1);
 
     return msg.reply(
-      botMsg(
-        msgType.toast({
-          text: `-${boldText(title)}:\n 
-              ${italicsText("previous " + args[2])}: ${value || "19:00"}\n\n
-              Please provide the new ${args[2]} to update`,
-        })
-      )
+      // toast message
+      toastMessage({
+        text: `-${boldText(title)}:\n 
+            ${italicsText("previous " + args[2])}: ${value || "19:00"}\n\n
+            Please provide the new ${args[2]} to update`,
+      })
     );
   }
 };
 
 const viewCronJobs = async (client, msg, args) => {
-  console.log("viewing job");
-  const jobs = await tasker.read();
+  //console.log("viewing job");
+  const { datalist: data } = await tasker.read();
+  const runningTasks = cron.getTasks();
 
-  console.log("tasks", jobs);
+  const jobStateFor = (i) => {
+    return isDate(i.task.cronPeriod) - new Date() < 0
+      ? "expired"
+      : runningTasks.has(i.taskId)
+      ? "running"
+      : "not running";
+  };
+
+  //console.log('pretasks', JSON.stringify(data))
+
+  const jobs =
+    data?.map((j, x) => {
+      const status = jobStateFor(j);
+      if (status === "expired") {
+        tasker.update({ key: { id: j.id }, update: { status: status } });
+      }
+      return {
+        ...j,
+        status: status,
+      };
+    }) || [];
+
+  //console.log("tasks", JSON.stringify(jobs));
+  jobs?.sort((a, b) => b.status[0].charCodeAt(0) - a.status[0].charCodeAt(0));
+  //console.log("sorted tasks", JSON.stringify(jobs));
   msg.reply(
-    botMsg(
-      msgType.toast({
-        text: `*Current Scheduled Tasks*\n\n${
-          jobs.datalist.length > 0
-            ? jobs.datalist
-                .map((i, x) => {
-                  return `${x + 1}. 
-            *${i.task.cronTarget}*
-            *${i.task.timestamp}*
-            *${i.task.message}*
-            *${i.task.cronPeriod}*
+    // toast message
+    toastMessage({
+      text: `*Current Scheduled Tasks*\n\n${
+        jobs?.length > 0
+          ? jobs
+              ?.map((i, x) => {
+                return `${x + 1}.        Task ${i.id} - *\`${i.status}\`*
+            To who: \*${i.task.cronTarget}\*
+            Message: ${i.task.message}
+            Day or Date: \*${i.task.cronPeriod}\*
             `;
-                })
-                .join("\n")
-            : italicsText("No tasks scheduled")
-        }`,
-      })
-    )
+              })
+              .join("\n") +
+            `\n\nTo restart a task that is not running, use the command *restart tasks [taskId]* `
+          : italicsText("No tasks scheduled")
+      }
+        `,
+    })
   );
   return;
 };
-const deleteCronJob = (client, msg, args) => {
-  console.log("viewing job");
+const restartCronJob = async (client, msg, jobId) => {
+  //console.log("reading restart")
+  const { datalist } = await tasker.read({ id: parseInt(jobId) });
+  const job = datalist[0];
+  const runningTasks = cron.getTasks();
+
+  if (!job.task) {
+    return msg.reply(
+      // scheduled message
+      toastMessage({ text: `task id '${jobId}' is not correct` })
+    );
+  }
+  if (job.status === "expired") {
+    //console.log("expired...")
+    return msg.reply(
+      // scheduled message
+      toastMessage({
+        text: `this task has already expired and cannot be restarted. Create a new task instead using the command\n!schedule.`,
+      })
+    );
+  }
+  if (runningTasks.size > 0 && runningTasks.has(job.taskId)) {
+    return msg.reply(
+      // scheduled message
+      toastMessage({ text: "task is already running" })
+    );
+  }
+  const newTask = cron.schedule(job?.task?.cronExpression, async () => {
+    const lastCronType = job?.task?.hasOwnProperty("message")
+      ? "message"
+      : "reminder";
+    //console.log('Sending scheduled message...')
+    if (lastCronType === "reminder") {
+      await sendReminder(msg, "_", message);
+    } else if (lastCronType === "message") {
+      await sendMessage(
+        client,
+        "+" + findBestMatch(job?.task.cronTarget, client.contacts).number,
+        job?.task.message
+      );
+    } else {
+      await cronActionMap[cronTypeMap[lastCronType]](
+        client,
+        job?.task.cronTarget,
+        job?.task.message
+      );
+    }
+  });
+
+  //console.log("task restarted: ", newTask.options.scheduled)
+  await tasker.update({
+    key: { id: jobId },
+    update: { taskId: newTask.options.name },
+  });
+  return msg.reply(
+    // scheduled message
+    toastMessage({ text: "task restarted!" })
+  );
 };
-const confirmTask = (
+const deleteCronJob = async (client, msg, args) => {
+  //console.log("deleting job", args);
+  const deleted = await tasker.remove(args[1]);
+  return deleted
+    ? msg.reply(
+        // scheduled message
+        scheduledTaskMessage("task deleted!")
+      )
+    : msg.reply(
+        // rejected message
+        rejectedTaskMessage("task not deleted!")
+      );
+};
+const confirmNewTask = (
   client,
   cronType,
   cronTarget,
@@ -489,11 +699,15 @@ const confirmTask = (
   if (cron.validate(cronExpression)) {
     scheduledTask = cron.schedule(cronExpression, async () => {
       const lastCronType = cronType;
-      console.log("Sending scheduled message...");
+      //console.log("Sending scheduled message...");
       if (lastCronType === "reminder") {
         await sendReminder(msg, "_", message);
       } else if (lastCronType === "message") {
-        await sendMessage(client, getContactIdByName(cronTarget), message);
+        await sendMessage(
+          client,
+          "+" + findBestMatch(cronTarget, client.contacts).number,
+          message
+        );
       } else {
         await cronActionMap[cronTypeMap[lastCronType]](
           client,
@@ -503,7 +717,8 @@ const confirmTask = (
       }
     });
 
-    tasker.insert(scheduledTask.options?.name, {
+    const status = "running";
+    tasker.insert(scheduledTask.options?.name, status, {
       timestamp: new Date().toISOString(),
       cronTarget,
       message,
@@ -534,236 +749,307 @@ const scheduleNewTask = (client, msg, task) => {
   // }
 };
 
-const execute = async (client, msg, args) => {
-  if (!msg.fromMe) {
-    return msg.reply(botMsg(msgType.error.restrictedAction));
+const noAction = (client, msg, args) => {
+  return msg.reply(
+    // requires action message
+    requiresActionMessage()
+  );
+};
+
+const navigateToDeleteTask = (msg, args) => {
+  if (!args[2] || !new RegExp(/[0-9]/).test(args[2])) {
+    return msg.reply(
+      // toast message
+      toastMessage({
+        text: "Please include the task Id in the command, e.g. `delete task 1`",
+      })
+    );
   }
-  try {
-    if (args[0] === INPUTSTATETYPES["waiting for command"]) {
-      if (args.includes("back")) {
-        updateInputState(
-          "schedule",
-          {
-            inputState: INPUTSTATETYPES["waiting for command"],
-            isIncomming: true,
-            args: args.slice(args.indexOf("back")),
-          },
-          {}
-        );
-        return msg.reply(
-          botMsg(
-            `*Schedule a task or check the details of a current task.*\n
-                What would you like to do?
-                *new task* - add a new task
-                *view tasks* - see all current tasks
-                *delete task [taskID]* - delete a task
-              `
-          )
-        );
-      }
-      if (args[1] && args[2]) {
-        args[1] = args[1] + " " + args[2];
 
-        args = [...args.slice(0, 2), ...args.slice(3)];
-      }
-      console.log("waiting for Command, args:", args[1]);
+  updateInputState("schedule", {
+    inputState: INPUTSTATETYPES["reading command"],
+    isIncomming: true,
+    args,
+    lastAction: "delete task",
+  });
+  return msg.reply(
+    // confirm message
+    confirmMessage({
+      custom: {
+        action: "delete",
+        target: "task " + args[2],
+      },
+    })
+  );
+};
 
-      if (args[1] === "new task") {
-        updateInputState("schedule", {
-          inputState: INPUTSTATETYPES["reading command"],
-          isIncomming: true,
-          args: args.slice(args.indexOf("new task")),
-        });
+const navigateToViewTasks = (client, msg, args) => {
+  updateInputState("schedule", {
+    inputState: INPUTSTATETYPES["waiting for command"],
+    isIncomming: true,
+    args,
+    lastAction: "view tasks",
+  });
 
-        return msg.reply(
-          botMsg(
-            msgType.toast({
-              text:
-                "Would you like to schedule a " +
-                italicsText("reminder") +
-                " or " +
-                italicsText("message"),
-            })
-          )
-        );
-      }
+  return viewCronJobs(client, msg, args);
+};
 
-      if (args[1] === "view tasks") {
-        updateInputState("schedule", {
-          inputState: INPUTSTATETYPES["waiting for command"],
-          isIncomming: true,
-          args,
-        });
+const navigateToRestartTasks = (client, msg, args) => {
+  if (isNaN(parseInt(args[1].at(-1)))) {
+    updateInputState("schedule", {
+      inputState: INPUTSTATETYPES["reading command"],
+      isIncomming: true,
+      args,
+      lastAction: "restart tasks",
+    });
 
-        return viewCronJobs(client, msg, args);
-      }
+    return msg.reply(
+      // confirm message
+      toastMessage({
+        text: "Please add the task id",
+      })
+    );
+  }
+  updateInputState("schedule", {
+    inputState: INPUTSTATETYPES["confirming command"],
+    isIncomming: true,
+    args,
+    lastAction: "restart tasks",
+  });
 
-      if (args[1] === "delete task") {
-        if (!args[2] || !new RegExp(/[0-9]/).test(args[2]))
-          return msg.reply(
-            botMsg(
-              msgType.toast({
-                text: "Please include the task Id in the command, e.g. `delete task 1`",
-              })
-            )
-          );
+  return msg.reply(
+    // confirm message
+    confirmMessage({
+      custom: {
+        action: "restart",
+        target: "task " + args[1],
+      },
+    })
+  );
+};
 
-        updateInputState("schedule", {
-          inputState: INPUTSTATETYPES["reading command"],
-          isIncomming: true,
-          args,
-        });
-        return msg.reply(
-          botMsg(
-            msgType.confirm({
-              custom: {
-                action: "delete",
-                target: "task" + args[2],
-              },
-            })
-          )
-        );
-      }
-    }
-    if (args[0] === INPUTSTATETYPES["reading command"]) {
-      if (args.includes("back")) {
-        updateInputState(
-          "schedule",
-          {
-            inputState: INPUTSTATETYPES["waiting for command"],
-            isIncomming: true,
-            args: args.slice(args.indexOf("back")),
-          },
-          {}
-        );
-        return msg.reply(
-          botMsg(
-            `*Schedule a task or check the details of a current task.*\n
-                What would you like to do?
-                *new task* - add a new task
-                *view tasks* - see all current tasks
-                *delete task [taskID]* - delete a task
-              `
-          )
-        );
-      }
-      // check which schedule parts are not included in the args
-      const tskLen = incommingInput()?.args.length;
+const navigateToNewtask = (msg, args) => {
+  updateInputState("schedule", {
+    inputState: INPUTSTATETYPES["reading command"],
+    isIncomming: true,
+    args: args.slice(args.indexOf("new task")),
+    lastAction: "new task",
+  });
+  return msg.reply(
+    // toast message
+    toastMessage({
+      text:
+        "Would you like to schedule a " +
+        italicsText("reminder") +
+        " or " +
+        italicsText("message"),
+    })
+  );
+};
+const navigateBack = (msg, args) => {
+  updateInputState(
+    "schedule",
+    {
+      inputState: INPUTSTATETYPES["waiting for command"],
+      isIncomming: true,
+      args: args.slice(args.indexOf("back")),
+      lastAction: "back",
+    },
+    {}
+  );
+  return msg.reply(
+    // schedule message
+    scheduleTaskMessage()
+  );
+};
+const actionRouter = (client, msg, args) => {
+  if (args[0 === "new task"]) {
+    return scheduleNewTask(client, msg, args);
+  }
+  if (args[0] === "view") {
+    return viewCronJobs(client, msg, args);
+  }
+  if (args[0] === "delete") {
+    return deleteCronJob(client, msg, args);
+  }
 
-      let newArgs = formatPeriod(args.slice(1)).join(" ");
-      console.log("new, ", newArgs);
-      const storePart =
-        scheduleParts[0][tskLen] === "message/reminder"
-          ? inputStore("schedule").action
-          : scheduleParts[0][tskLen] === "day/date"
-          ? isCron(newArgs)?.toLowerCase()
-          : scheduleParts[0][tskLen];
-      newArgs = cronify(scheduleParts[0][tskLen], newArgs);
+  return noAction(client, msg, args);
+};
+const waitingForCommand = (client, msg, args) => {
+  //console.log("in waiting for command")
+  if (args.includes("back")) {
+    return navigateBack(msg, args);
+  }
+  if (args[1] && args[2]) {
+    args[1] = args[1] + " " + args[2];
 
-      updateInputState(
-        "schedule",
-        {
-          inputState: INPUTSTATETYPES["reading command"],
-          isIncomming: true,
-          args: [
-            args[0],
-            ["message", "reminder"].includes(storePart)
-              ? storePart + newArgs
-              : newArgs,
-          ],
-        },
-        { [storePart]: args.slice(1).join(" ") }
-      );
-      const nextPart = scheduleParts[0][tskLen + 1];
+    args = [...args.slice(0, 2), ...args.slice(3)];
+  }
+  //console.log("waiting for Command, args:", args);
 
-      const translatePart = {
-        action: "reminder or message",
-        target:
-          "Who would you like to send the " +
-          inputStore("schedule").action +
-          " to?",
-        time:
-          "What time would you like to schedule the " +
-          inputStore("schedule").action +
-          "?",
-        "day/date":
-          "Which day or date would you like to schedule the " +
-          inputStore("schedule").action +
-          "?",
-        "message/reminder":
-          "What " +
-          inputStore("schedule").action +
-          " would you like to schedule?",
-      };
-      if (tskLen + 1 < scheduleParts[0].length) {
-        return msg.reply(
-          botMsg(
-            msgType.toast({
-              text: translatePart[nextPart],
-            })
-          )
-        );
-      }
-      updateInputState("schedule", {
-        inputState: INPUTSTATETYPES["confirming command"],
+  if (args[1] === "new task") {
+    // startNewTaskSession(()=>navigateToNewTask(msg, args))
+    return navigateToNewtask(msg, args);
+  }
+
+  if (args[1] === "view tasks") {
+    // startViewTasksSession(()=>navigateToViewTasks(client, msg, args))
+    return navigateToViewTasks(client, msg, args);
+  }
+
+  if (args[1] === "restart tasks") {
+    // startRestartTasksSession(()=>navigateToRestartTasks(client, msg, args))
+    return navigateToRestartTasks(client, msg, args);
+  }
+
+  if (args[1] === "delete task") {
+    // startDeleteTaskSession(()=>navigateToDeleteTask( msg, args))
+    return navigateToDeleteTask(msg, args);
+  }
+};
+const readingCommand = (client, msg, args) => {
+  //console.log('in reading command', args)
+  const { lastAction, args: actionArgs } = incommingInput();
+
+  if (args.includes("back")) {
+    updateInputState(
+      "schedule",
+      {
+        inputState: INPUTSTATETYPES["waiting for command"],
         isIncomming: true,
-        args: incommingInput()?.args,
-      });
-      const store = inputStore("schedule");
+        args: args.slice(args.indexOf("back")),
+      },
+      {}
+    );
+    return msg.reply(
+      // schedule message
+      scheduleTaskMessage()
+    );
+  }
+
+  if (args[1] === "yes" || args[1] === "edit" || args[1] === "no") {
+    return confirmingCommand(client, msg, args);
+  }
+
+  if (lastAction === "new task") {
+    // check if args has errors
+    const task = inputStore("schedule");
+
+    // check which schedule parts are not included in the args
+    const tskLen = incommingInput()?.args.length;
+    const currPart = scheduleParts[0][tskLen];
+
+    const containsInvalid = (action, currPart, input) => {
+      return input.some((i) => !cmdValidFor[action](i, currPart, client));
+    };
+
+    const { validity: status, error } = containsInvalid("new task", [
+      args.slice(1),
+    ]);
+
+    // handle invalid actions
+    if (validity === "invalid") {
+      console.log("invalid args", args);
       return msg.reply(
-        botMsg(
-          msgType.confirm({
-            action: {
-              key: "Action",
-              value: store.action,
-            },
-            time: {
-              key: "Time",
-              value: store.time,
-            },
-            message: {
-              key: store.action,
-              value: store[store.action],
-            },
-            dayDatePeriod: {
-              key: store.hasOwnProperty("day")
-                ? "Day"
-                : store.hasOwnProperty("days")
-                ? "Days"
-                : store.hasOwnProperty("date")
-                ? "Date"
-                : store.hasOwnProperty("period")
-                ? "Period"
-                : "Day",
-              value:
-                store[
-                  store.hasOwnProperty("day")
-                    ? "day"
-                    : store.hasOwnProperty("days")
-                    ? "days"
-                    : store.hasOwnProperty("date")
-                    ? "date"
-                    : store.hasOwnProperty("period")
-                    ? "period"
-                    : "day"
-                ],
-            },
-          })
-        )
+        warningMessage({
+          invalidValue: args.at(-1),
+          type: args[2],
+          task: {
+            key: args[2],
+            value: task?.[args[2]],
+          },
+          exampleFormat: exampleFormat[args[2]] || "new task",
+        })
       );
     }
 
-    if (args[0] === INPUTSTATETYPES["confirming command"]) {
-      // updateInputState('schedule', {inputState:INPUTSTATETYPES['confirming command'], isIncomming:true, args})
-      if (args[1] === "yes") {
-        msg.reply(botMsg("okay..., task scheduled! "));
+    let newArgs = formatPeriod(args.slice(1)).join(" ");
+    //console.log("new, ", newArgs);
+    const storePart =
+      scheduleParts[0][tskLen] === "message/reminder"
+        ? inputStore("schedule").action
+        : scheduleParts[0][tskLen] === "day/date"
+        ? isCron(newArgs)?.toLowerCase()
+        : scheduleParts[0][tskLen];
+    newArgs = cronify(scheduleParts[0][tskLen], newArgs);
+
+    // update part added
+    updateInputState(
+      "schedule",
+      {
+        inputState: INPUTSTATETYPES["reading command"],
+        isIncomming: true,
+        args: [
+          args[0],
+          ["message", "reminder"].includes(storePart)
+            ? storePart + newArgs
+            : newArgs,
+        ],
+      },
+      { [storePart]: args.slice(1).join(" ") }
+    );
+    // //console.log("schedPart", scheduleParts[0], [tskLen + 1]);
+
+    const nextPart = scheduleParts[0][tskLen + 1];
+
+    // reply to add next part
+    if (tskLen + 1 < scheduleParts[0].length) {
+      return msg.reply(
+        // toast message
+        toastMessage({ nextPart: nextPart })
+      );
+    }
+    // update no more incomming parts
+    updateInputState("schedule", {
+      inputState: INPUTSTATETYPES["confirming command"],
+      isIncomming: true,
+      args: incommingInput()?.args,
+    });
+    const store = inputStore("schedule");
+    // //console.log("going to confirm")
+    return msg.reply(
+      // confirm message
+      confirmMessage({ store })
+    );
+  }
+
+  if (lastAction === "view tasks") {
+  }
+
+  if (lastAction === "delete tasks") {
+  }
+
+  //
+  if (lastAction === "restart tasks" && !isNaN(parseInt(args[1]))) {
+    return navigateToRestartTasks(client, msg, args);
+  }
+};
+
+const confirmingCommand = (client, msg, args, command) => {
+  const { lastAction, args: actionArgs } = incommingInput();
+
+  updateInputState("schedule", {
+    inputState: INPUTSTATETYPES["waiting for command"],
+    isIncomming: true,
+    args,
+  });
+  //console.log('in confirming command')//, args, actionArgs, lastAction)
+  if (args.at(-1) === "yes") {
+    const handleTaskConfirmationByAction = (cmd) => {
+      // cmds: new task, view task, delete task
+      if (cmd === "new task") {
+        msg.reply(
+          // scheduled message
+          scheduledTaskMessage()
+        );
+        // return scheduleNewTask(client, msg, args);
         let { action, target, message, day, days, date, period, expression } =
           inputStore("schedule");
 
         expression ||= buildExpressionFor(
           getCronParts(prepareForCronTask(inputStore("schedule"))[0]).rest
         );
-        confirmTask(
+        return confirmNewTask(
           client,
           action,
           target,
@@ -771,80 +1057,120 @@ const execute = async (client, msg, args) => {
           day || days || date || period,
           message
         );
-        return;
       }
-      if (args[1] === "no") {
-        msg.reply(botMsg("okay..., task rejected!"));
-        return;
+      if (cmd === "view tasks") {
+        return viewCronJobs(client, msg, args);
       }
-      if (args[1] === "edit") {
-        const store = inputStore("schedule");
-        const dayDatePeriod = store?.day
-          ? "Day"
-          : store?.days
-          ? "Days"
-          : store?.date
-          ? "Date"
-          : store?.period
-          ? "Period"
-          : "Day";
+      if (cmd === "delete task") {
+        args[1] = actionArgs.at(-1);
 
-        updateInputState("schedule", {
-          inputState: INPUTSTATETYPES["updating command"],
-          isIncomming: true,
-          args,
-        });
-        return msg.reply(
-          botMsg(
-            msgType.update({
-              dayDatePeriod,
-              message: store.hasOwnProperty("message") ? "message" : "reminder",
-            })
-          )
-        );
+        return deleteCronJob(client, msg, args);
       }
+      if (cmd === "restart tasks") {
+        args[1] = actionArgs.at(-1);
 
-      return msg.reply(botMsg(msgType.choose.option));
+        return restartCronJob(client, msg, args[1]);
+      }
+      return noAction(client, msg);
+    };
+    return handleTaskConfirmationByAction(lastAction);
+  }
+  if (args.at(-1) === "no") {
+    msg.reply(
+      // rejected message
+      rejectedTaskMessage()
+    );
+    return;
+  }
+  if (args.at(-1) === "edit") {
+    return; //console.log("args", args)
+    const store = inputStore("schedule");
+    const dayDatePeriod = store?.day
+      ? "Day"
+      : store?.days
+      ? "Days"
+      : store?.date
+      ? "Date"
+      : store?.period
+      ? "Period"
+      : "Day";
+
+    updateInputState("schedule", {
+      inputState: INPUTSTATETYPES["updating command"],
+      isIncomming: true,
+      args,
+    });
+    return msg.reply(
+      // update message
+      updatedTaskMessage({ store, dayDatePeriod })
+    );
+  }
+  //console.log("no confirmation found")
+  return msg.reply(
+    // option message
+
+    optionMessage()
+  );
+};
+
+const updatingCommand = (client, msg, args) => {
+  //console.log('in updating command')
+  updateInputState("schedule", {
+    inputState: INPUTSTATETYPES["updating command"],
+    isIncomming: true,
+    args,
+  });
+  if (args.includes("back")) {
+    // //console.log("back", args)
+    updateInputState("schedule", {
+      inputState: INPUTSTATETYPES["updating command"],
+      isIncomming: true,
+      args: args.slice(args.indexOf("back")),
+    });
+
+    const task = prepareForCronTask(inputStore("schedule"));
+    // //console.log("back", task)
+    return scheduleNewTask(client, msg, task);
+  }
+  if (args?.[1] === "edit") {
+    return editCronJob(client, msg, args);
+  }
+
+  return msg.reply(
+    // choose message
+    choiceMessage(args)
+  );
+};
+
+const execute = async (client, msg, args) => {
+  if (!msg.fromMe) {
+    return msg.reply(
+      // restricted action message
+      restrictedActionMessage()
+    );
+  }
+  try {
+    if (args[0] === INPUTSTATETYPES["waiting for command"]) {
+      return waitingForCommand(client, msg, args);
+    }
+    if (args[0] === INPUTSTATETYPES["reading command"]) {
+      return readingCommand(client, msg, args);
+    }
+
+    if (args[0] === INPUTSTATETYPES["confirming command"]) {
+      return confirmingCommand(client, msg, args);
     }
 
     if (args[0] === INPUTSTATETYPES["updating command"]) {
-      updateInputState("schedule", {
-        inputState: INPUTSTATETYPES["updating command"],
-        isIncomming: true,
-        args,
-      });
-      if (args.includes("back")) {
-        // console.log("back", args)
-        updateInputState("schedule", {
-          inputState: INPUTSTATETYPES["updating command"],
-          isIncomming: true,
-          args: args.slice(args.indexOf("back")),
-        });
-
-        const task = prepareForCronTask(inputStore("schedule"));
-        // console.log("back", task)
-        return scheduleNewTask(client, msg, task);
-      }
-      if (args?.[1] === "edit") {
-        return editCronJob(client, msg, args);
-      }
-
-      return msg.reply(
-        botMsg(
-          msgType.choose.aspect(args[2][0].toUpperCase() + args[2].slice(1))
-        )
-      );
+      return updatingCommand(client, msg, args);
     }
 
     if (args.length > 1) {
       if (args.includes("reminder") || args.includes("message")) {
         const task = args.join(" "); //msg.body.slice(10).trim()
         if (!task) {
-          return msg.reply(
-            botMsg(
-              "Please provide a valid task to schedule. \nUse `!help schedule` for more info."
-            )
-          );
+          // invalid message
+          return msg.reply(invalidChoiceMessage());
         }
 
         let [crontask, message] = [
@@ -869,19 +1195,13 @@ const execute = async (client, msg, args) => {
       },
       {}
     );
-    return msg.reply(
-      botMsg(
-        `*Schedule a task or check the details of a current task. * \n
-          What would you like to do?
-          *new task* - add a new task
-          *view tasks* - see all current tasks
-          *delete task [taskID]* - delete a task
-          `
-      )
-    );
+    // schedule message
+    return msg.reply(scheduleTaskMessage());
   } catch (error) {
     console.error("Error in task format:", error);
-    return msg.reply(botMsg(msgType.notify));
+    // requires action message
+
+    return msg.reply(requiresActionMessage());
   }
 };
 

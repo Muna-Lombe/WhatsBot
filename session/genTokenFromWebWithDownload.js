@@ -2,10 +2,10 @@ const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const qrcode2 = require("qr-image");
 const qrcode3 = require("qrcode-svg");
-const { createWriteStream, readFile } = require("fs");
-const { write, clean } = require("./manage");
+const { createWriteStream, readFile, rmSync, existsSync } = require("fs");
+const { write, clean, deleteAllFilesInDir } = require("./manage");
 const readline = require("readline");
-const { unlink } = require("fs/promises");
+const { unlink, rm, mkdir } = require("fs/promises");
 const path = require("path");
 const { response } = require("express");
 const app = require("express")();
@@ -24,42 +24,53 @@ async function generateNewToken({ userId, http, ws }) {
       Math.random().toString(36).substring(2, 15);
     const botId = "whatsbot_" + userId + "_" + token;
     console.log("botId: ", botId);
+
+    // create user folder if it doesn't exist
+    if (!existsSync(path.join(__dirname, `/qrAuth/${userId}`))) {
+      await mkdir(path.join(__dirname, `/qrAuth/${userId}`));
+    }
+
     const client = new Client({
       puppeteer: { headless: true, args: ["--no-sandbox"] },
       authStrategy: new LocalAuth({ clientId: botId }),
     });
 
     client.initialize();
-    console.log("client initialized..!");
+    console.log("reg-client initialized..!");
 
     client.on("qr", async (qr) => {
+      // await unlink(
+      //   path.join(__dirname, `/qrAuth/${userId}`)
+      // )
+
+      await deleteAllFilesInDir(path.join(__dirname, `/qrAuth/${userId}`));
       console.log(`Sending qr code to client\n`);
 
       await qrcode2
         .image(qr, { type: "png", size: 10 })
         .pipe(
           createWriteStream(
-            path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`)
+            path.join(__dirname, `/qrAuth/${userId}/${token}_login_qrcode.png`)
           )
         );
-      const opt1 = await new Promise((resolve, reject) => {
-        new Blob(
-          [
-            readFile(
-              path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`),
-              (err, data) => {
-                if (err) {
-                  return reject(err);
-                }
-                resolve(data);
-              }
-            ),
-          ],
-          { type: "image/png" }
-        );
-      });
+      // const opt1 = await new Promise((resolve, reject) => {
+      //   new Blob(
+      //     [
+      //       readFile(
+      //         path.join(__dirname, `/qrAuth/${userId}/${token}_login_qrcode.png`),
+      //         (err, data) => {
+      //           if (err) {
+      //             return reject(err);
+      //           }
+      //           resolve(data);
+      //         }
+      //       ),
+      //     ],
+      //     { type: "image/png" }
+      //   );
+      // });
       const opt2 = new URL(
-        `/securelink/qrTemp/${userId}_login_qrcode.png`,
+        `/securelink/qrAuth/${userId}/${token}_login_qrcode.png`,
         `http://${http?.req?.headers?.host || server_url}`
       );
       if (http?.hasOwnProperty("req")) {
@@ -168,16 +179,17 @@ async function generateNewToken({ userId, http, ws }) {
           );
         }
 
-        await unlink(
-          path.join(__dirname, `/qrTemp/${userId}_login_qrcode.png`)
-        );
+        await rm(path.join(__dirname, `/qrAuth/${userId}`));
+        // await unlink(
+        //   path.join(__dirname, `/qrAuth/${userId}`)
+        // );
 
         startBot(botId, botId.split("_")[2], ws);
         // app.response.download("./session.secure");
       }, 3000);
     });
 
-    return { client };
+    return { botId, client };
   } catch (error) {
     console.log("", error);
   }

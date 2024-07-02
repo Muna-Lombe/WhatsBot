@@ -11,37 +11,41 @@ const { crontasksDb } = require("../services");
  * @param {object} task - The cron task to be inserted.
  * @returns {Promise<boolean>} - A promise that resolves to true if the document was inserted successfully, or false if an error occurred.
  */
-async function insert(id, task) {
+async function insert(id, status, task) {
   const { conn, coll } = await crontasksDb;
   try {
     console.log("inserting...", id, task);
-    await coll.insert({ taskId: id, task: JSON.stringify(task) });
+    await coll.insert({ taskId: id, status, task: JSON.stringify(task) });
     return true;
   } catch (error) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      console.log("state", await coll.read());
+
+      // await conn.close();
     }
   }
 }
 
 /**
  * Updates the violation count for a given ID in the "crontasks" collection.
- * @param {string} id - The ID of the user.
- * @param {number} task - The number of times the user has violated.
+ * @param {Object} key - The key to find the task by.
+ * @param {Object} update - The data to update.
  * @returns {Promise<boolean>} - A promise that resolves to true if the update is successful, false otherwise.
  */
-async function update(id, task) {
+async function update({ key, update }) {
   let { conn, coll } = await crontasksDb;
   try {
-    await coll.update({ taskId: id }, { task: JSON.stringify(task) });
+    await coll.update(key, update);
     return true;
   } catch (error) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      console.log("state", await coll.read());
+
+      // await conn.close();
     }
   }
 }
@@ -49,28 +53,39 @@ async function update(id, task) {
 /**
  * Reads the data for a given ID from the "crontasks" collection in the database.
  * If the data exists and has a permit, it saves the cache for later usage.
- * @param {string} id - The ID to read the data for.
+ * @param {Object} id - The ID to read the data for.
  * @returns {Promise<Object>}  - A Promise object containing the data for the ID.
  * If the data exists and has a permit, the object will have a "found" property set to true.
  * If the data does not exist or does not have a permit, the object will have a "found" property set to false.
  */
 async function read(id) {
   let { conn, coll } = await crontasksDb;
+  const taskId = id ? { taskId: id } : null;
   try {
-    let data = await coll.read({ taskId: id });
-    if (data && data[0].task) {
+    let { data } = await coll.read(id || null);
+    // console.log("data", data)
+    if (data && data[0]?.task && id) {
       // save the cache for later usage
       fs.writeFileSync(
         path.join(__dirname, `../cache/${id}.json`),
-        JSON.stringify({ ...data, found: true })
+        JSON.stringify({ datalist: data, found: true })
       );
     }
-    return data ? { ...data[0], found: true } : { found: false };
+    return data
+      ? {
+          datalist: data?.length
+            ? data.map((d) => ({ ...d, task: JSON.parse(d.task) }))
+            : data,
+          found: true,
+        }
+      : { found: false };
   } catch (error) {
+    console.log("tasker error", error);
     return { found: false };
   } finally {
     if (conn) {
-      await conn.close();
+      console.log("state", coll.read());
+      // await conn.cslose();
     }
   }
 }
@@ -83,7 +98,11 @@ async function read(id) {
 async function remove(id) {
   let { conn, coll } = await crontasksDb;
   try {
-    await coll.delete({ taskId: id });
+    const deleted = await coll.delete({ taskId: parseInt(id) });
+    console.log("task deleted", deleted.data.changes);
+    if (!deleted?.data?.changes) {
+      throw "not deleted";
+    }
     try {
       fs.unlinkSync(`${__dirname}/../cache/${id}.json`);
       console.log(`Deleting cache file for: ${id}`);
@@ -93,7 +112,9 @@ async function remove(id) {
     return false;
   } finally {
     if (conn) {
-      await conn.close();
+      console.log("state", await coll.read());
+
+      // await conn.close();
     }
   }
 }

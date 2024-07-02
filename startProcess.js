@@ -1,6 +1,12 @@
 const { BotSessionManager } = require("./managers/botMangager");
 const { replicate, clean, fetchSession } = require("./session/manage");
 
+/**
+ * starts the bot
+ * @param {*} botId - bot id to start
+ * @param {*} botToken - token bound to bot
+ * @param {*} ws - websocket connection
+ */
 async function startBot(botId, botToken, ws) {
   try {
     // clean();
@@ -9,8 +15,10 @@ async function startBot(botId, botToken, ws) {
     setTimeout(async () => {
       // require("./main");
       const bot = await BotSessionManager.getClientFromBotId({ botId });
+      // console.log("pre ws-start bot",bot)
       bot.ws = ws;
-      bot.start();
+      await bot.start();
+      console.log("post ws-start bot", bot.client.commands.size);
 
       // await botClient(botId, ws).start();
     }, 1000);
@@ -22,7 +30,7 @@ async function stopBot(botId, ws) {
   try {
     const bot = await BotSessionManager.getClientFromBotId({ botId });
     bot.ws = ws;
-    bot.stop();
+    bot.client.stop();
   } catch (error) {
     console.error("something caught:", error?.message);
   }

@@ -61,6 +61,13 @@ function parseChars(data) {
 
   const newData = typeof data === "string" ? "" : Array.isArray(data) ? [] : {};
 
+  // if(typeof data === "string"){
+  //   for (const char in specChars) {
+  //     const reg = new RegExp(specChars[char], "g");
+  //     newData = data.replace(reg, char);
+  //   }
+  //   // return data;
+  // }
   for (const key in data) {
     if (typeof data[key] === "string") {
       let newValue = data[key];
@@ -78,7 +85,7 @@ function parseChars(data) {
       newData[key] = data[key];
     }
   }
-  // console.log('deser data', data, 'newData', newData)
+  // console.log('newData', newData)
 
   return newData;
 }

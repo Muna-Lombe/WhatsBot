@@ -10,6 +10,7 @@ const config = require("../config");
 const axios = require("axios");
 const { sleep } = require("../helpers/genUtils");
 require("dotenv").config();
+const path = require("path");
 
 let base = `${__dirname}/../.wwebjs_auth/`;
 
@@ -36,7 +37,10 @@ module.exports = {
       if (commandInput && commandInput.lastCommand) {
         fs.writeFileSync(
           `${__dirname}/../cache/commandInput.json`,
-          JSON.stringify({})
+          JSON.stringify({
+            lastCommand: "",
+            store: {},
+          })
         );
       }
     } catch (_) {}
@@ -161,6 +165,23 @@ module.exports = {
       throw new Error(
         `Session fetching failed. If you are using Local machine or VPS please remove 'SESSION_URL' from Enviroment Variable. ${error.toString()}`
       );
+    }
+  },
+  deleteAllFilesInDir: async function (dirPath) {
+    try {
+      if (fs.existsSync(dirPath)) {
+        fs.readdirSync(dirPath).forEach((file) => {
+          fs.rmSync(path.join(dirPath, file));
+        });
+      } else {
+        throw new Error(
+          "Folder does not exist, maybe there is an error is folder name."
+        );
+      }
+    } catch (error) {
+      console.log(error.message);
+      return;
+      // console.log(error)
     }
   },
 };

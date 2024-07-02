@@ -1,12 +1,73 @@
 // change to regex
 const days = {
-  monday: ["mon", "mon,", "mon.", "monday", "monday,", "monday."],
-  tuesday: ["tue", "tue,", "tue.", "tuesday", "tuesday,", "tuesday."],
-  wednesday: ["wed", "wed,", "wed.", "wednesday", "wednesday,", "wednesday."],
-  thursday: ["thur", "thur,", "thur.", "thursday", "thursday,", "thursday."],
-  friday: ["fri", "fri,", "fri.", "friday", "friday,", "friday."],
-  saturday: ["sat", "sat,", "sat.", "saturday", "saturday,", "saturday."],
-  sunday: ["sun", "sun,", "sun.", "sunday", "sunday,", "sunday."],
+  monday: ["mon", "mon,", "mon.", "monday", "mondays", "monday,", "monday."],
+  tuesday: [
+    "tue",
+    "tue,",
+    "tue.",
+    "tuesday",
+    "tuesdays",
+    "tuesday,",
+    "tuesday.",
+  ],
+  wednesday: [
+    "wed",
+    "wed,",
+    "wed.",
+    "wednesday",
+    "wednesdays",
+    "wednesday,",
+    "wednesday.",
+  ],
+  thursday: [
+    "thur",
+    "thur,",
+    "thur.",
+    "thursday",
+    "thursdays",
+    "thursday,",
+    "thursday.",
+  ],
+  friday: ["fri", "fri,", "fri.", "friday", "fridays", "friday,", "friday."],
+  saturday: [
+    "sat",
+    "sat,",
+    "sat.",
+    "saturday",
+    "saturdays",
+    "saturday,",
+    "saturday.",
+  ],
+  sunday: ["sun", "sun,", "sun.", "sunday", "sundays", "sunday,", "sunday."],
+};
+const months = {
+  january: [
+    "jan",
+    "jan,",
+    "jan.",
+    "january",
+    "january",
+    "january,",
+    "january.",
+  ],
+  february: ["feb", "feb,", "feb.", "february", "february,", "february."],
+  march: ["mar", "mar,", "mar.", "march", "march,", "march."],
+  april: ["apr", "apr,", "apr.", "april", "april,", "april."],
+  may: ["may", "may,", "may.", "may", "may,", "may."],
+  june: ["jun", "jun,", "jun.", "june", "june,", "june."],
+  july: ["jul", "jul,", "jul.", "july", "july,", "july."],
+  august: ["aug", "aug,", "aug.", "august", "august", "august,", "august."],
+  september: [
+    "sept",
+    "sept,",
+    "sept.",
+    "september",
+    "september,",
+    "september.",
+  ],
+  october: ["oct", "oct,", "oct.", "october", "october,", "october."],
+  november: ["nov", "nov,", "nov.", "november", "november,", "november."],
+  december: ["dec", "dec,", "dec.", "december", "december,", "december."],
 };
 const validDays = [
   "month",
@@ -20,6 +81,21 @@ const validDays = [
   ...days.sunday,
 ];
 
+const validMonths = [
+  ...months.january,
+  ...months.february,
+  ...months.march,
+  ...months.april,
+  ...months.may,
+  ...months.june,
+  ...months.july,
+  ...months.august,
+  ...months.september,
+  ...months.october,
+  ...months.november,
+  ...months.december,
+];
+
 const validPeriods = ["every", "at", "on", "for", "during"];
 const validTimes = [
   "second",
@@ -31,7 +107,9 @@ const validTimes = [
   "day",
   "days",
 ];
-
+const getMonthIdx = (str) => {
+  return Object.keys(months).findIndex((m) => m === str) + 1;
+};
 const validCronWords = [...validDays, ...validTimes, ...validPeriods];
 const reg12 =
   /(1[0-2]|0?[1-9]):([0-5][0-9])\s?(AM|PM|am|pm)?|([01]?[0-9]|1[0-2])(AM|PM|am|pm)/g;
@@ -55,6 +133,9 @@ const isDay = (string) => {
 const isDays = (string) => {
   return string.split(" ").filter((s) => isDay(s)).length > 1;
 };
+// const isMonth = (string) =>{
+//   return string.split(" ").filter
+// }
 const isDate = (string) => {
   // Should match the following:
   // 2021-10-20
@@ -109,7 +190,7 @@ const isCronWord = (string) => {
   return validCronWords.includes(string?.toLowerCase());
 };
 const isMonth = (string) => {
-  return new RegExp(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i).test(
+  return new RegExp(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i).test(
     string
   );
 };
@@ -318,5 +399,6 @@ module.exports = {
   format,
   exampleFormat,
   scheduleParts,
+  getMonthIdx,
   types,
 };

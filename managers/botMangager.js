@@ -1,13 +1,10 @@
 // Description: This file contains the bot manager class which is responsible for managing the bot instances.
 
-const QRCode = require("qrcode");
+// The bot manager class is responsible for managing the bot instances. It creates a new bot instance when a new bot is registered and stores the bot instance in a map with the bot id as the key. It also provides methods to get the bot instance from the bot id and add listeners to the bot instance.
 const { readdir } = require("fs/promises");
-const { BotClient, BotClientInstance } = require("../mainly");
+const { BotClientInstance } = require("../botClientInstanceCreator");
 const { clean } = require("../session/manage");
-const {
-  registerBotSession,
-} = require("../session/genTokenFromWebWithDownload");
-// const { WhatsappWebSession } = require('./WhatsappWebSession')
+const { listenersArray } = require("../factories/botFactory");
 
 const getDirectories = async (source) =>
   (await readdir(source, { withFileTypes: true }))
@@ -23,21 +20,40 @@ class WhatsappSessionManager {
 
     return this;
   }
+  clientExists = (botId) => {
+    return this.botIdVsClientInstance[botId] !== undefined;
+  };
 
   createWAClient = async ({ botId, userId, ws, register }) => {
     let client = null;
+
     if (this.botIdVsClientInstance[botId]) {
       return this.botIdVsClientInstance[botId];
     }
     if (register) {
-      client = (await registerBotSession({ userId, ws })).client; //
-    }
+      const {
+        registerBotSession,
+      } = require("../session/genTokenFromWebWithDownload");
 
-    this.botIdVsClientInstance[botId] = new BotClientInstance(
+      // console.log("what is registerBotSession", registerBotSession)
+      const response = await registerBotSession({ userId, ws }); //
+      client = response.client;
+      botId ||= response.botId;
+      console.log(
+        "new bot",
+        this.botIdVsClientInstance,
+        "/n respinse",
+        response
+      );
+    }
+    this.botIdVsClientInstance[botId] = new BotClientInstance({
       botId,
       ws,
-      client
-    );
+      client,
+      listeners: listenersArray,
+    });
+
+    this.botIdVsClientInstance[botId] = client;
 
     return this.botIdVsClientInstance[botId];
   };
@@ -54,15 +70,23 @@ class WhatsappSessionManager {
 
   getClientFromBotId = ({ botId }) => {
     // {botId:ClientInstance}
-    return this.botIdVsClientInstance[botId];
+    console.log(
+      "has botIdVsClientInstance:",
+      this.botIdVsClientInstance.clientId ||
+        (false, "creating new botClient instance...")
+    );
+    return (this.botIdVsClientInstance[botId] ||= new BotClientInstance({
+      botId,
+      listeners: listenersArray,
+    }));
   };
 
   addClientListeners = ({ client, listeners: [] }) => {
-    listeners.forEach((listener) => {
-      client.addListener(listener.event, listener.callback);
-    });
-    const client = this.getClientFromBotId(botId);
-    client.addWs(ws);
+    // listeners.forEach((listener) => {
+    //   client.addListener(listener.event, listener.callback);
+    // });
+    // // client ||= this.getClientFromBotId(botId);
+    // client.addWs(ws);
   };
 
   getBotIds = () => {
@@ -70,8 +94,8 @@ class WhatsappSessionManager {
   };
 }
 
-const singularWhatsappSessionManager = new WhatsappSessionManager();
+const singleWhatsappSessionManagerInstance = new WhatsappSessionManager();
 
 module.exports = {
-  BotSessionManager: singularWhatsappSessionManager,
+  BotSessionManager: singleWhatsappSessionManagerInstance,
 };
