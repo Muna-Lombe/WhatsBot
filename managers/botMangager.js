@@ -6,10 +6,11 @@ const { BotClientInstance } = require("../botClientInstanceCreator");
 const { clean } = require("../session/manage");
 const { listenersArray } = require("../factories/botFactory");
 
-const getDirectories = async (source) =>
-  (await readdir(source, { withFileTypes: true }))
+const getDirectories = async (source) => {
+  return await readdir(source, { withFileTypes: true })
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
+};
 
 class WhatsappSessionManager {
   botIdVsClientInstance = {};
@@ -39,12 +40,9 @@ class WhatsappSessionManager {
       const response = await registerBotSession({ userId, ws }); //
       client = response.client;
       botId ||= response.botId;
-      console.log(
-        "new bot",
-        this.botIdVsClientInstance,
-        "/n respinse",
-        response
-      );
+
+      // response
+      console.log("new bot created..! ", response.botId);
     }
     this.botIdVsClientInstance[botId] = new BotClientInstance({
       botId,
@@ -53,7 +51,7 @@ class WhatsappSessionManager {
       listeners: listenersArray,
     });
 
-    this.botIdVsClientInstance[botId] = client;
+    this.botIdVsClientInstance[botId] ||= client;
 
     return this.botIdVsClientInstance[botId];
   };

@@ -706,7 +706,7 @@ class SqliteConnection {
     ];
     const queryAll = `SELECT * FROM ${this.#collection}`;
 
-    console.log("query", key, queryOne, queryAll);
+    // console.log("query", key, queryOne, queryAll);
     const result = key
       ? await this.db.query(queryOne[0], queryOne[1])
       : await this.db.query(queryAll);
@@ -800,14 +800,15 @@ class SqliteConnection {
    * Delete a record from the collection.
    *
    * @param {string} collection_name - The name of the collection.
-   * @param {object} key - The key to find the record to delete.
+   * @param {object} key - {key:value} The key to find the record to delete.
    * @returns {Promise<void>}
    */
   async delete(key) {
     // this.db.serialize(() => {
-    return this.db.delete(`DELETE FROM ${this.#collection} WHERE id = ?`, [
-      key.taskId,
-    ]);
+    return this.db.delete(
+      `DELETE FROM ${this.#collection} WHERE ${Object.keys(key)[0]} = ?`,
+      [Object.values(key)[0]]
+    );
     // this.db.run(`DELETE FROM ${this.#collection} WHERE id = ?`, [key.id], function (err) {
     //   if (err) {
     //     return console.error(err.message);

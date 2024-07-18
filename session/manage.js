@@ -11,6 +11,7 @@ const axios = require("axios");
 const { sleep } = require("../helpers/genUtils");
 require("dotenv").config();
 const path = require("path");
+const { botsDb } = require("../services");
 
 let base = `${__dirname}/../.wwebjs_auth/`;
 
@@ -23,18 +24,37 @@ let excludedDir = [
 ];
 
 module.exports = {
-  clean: function clean() {
+  clean: function clean(botId) {
     try {
       // delete dir if exists
-      if (fs.existsSync(`${__dirname}/../.wwebjs_auth`)) {
-        fs.rmSync(`${__dirname}/../.wwebjs_auth`, { recursive: true });
-        console.log("Session directory cleaned");
+      console.log("cleaning stored bot client configurations...");
+      if (fs.existsSync(`${_base}${botId ? "session-" + botId : ""}`)) {
+        fs.rmSync(`${base}${botId ? "session-" + botId : ""}`, {
+          recursive: true,
+        });
+        console.log("stored bot client configurations cleaned..!");
       }
-      const commandInput = JSON.parse(
-        fs.readFileSync(`${__dirname}/../cache/commandInput.json`)
-      );
-      console.log("cleaning :", commandInput);
-      if (commandInput && commandInput.lastCommand) {
+
+      console.log("cleaning qrAuth  directory...");
+      if (
+        fs.existsSync(`${__dirname}/../session/qrAuth/${botId ? botId : ""}`)
+      ) {
+        fs.readdirSync(
+          `${__dirname}/../session/qrAuth/${botId ? botId : ""}`
+        ).forEach((fileDir) => {
+          fs.rmSync(
+            path.join(__dirname, `/qrAuth/${botId ? botId : ""}/${fileDir}`),
+            { recursive: true, force: true }
+          );
+        });
+        console.log("qrAuth  directory cleaned");
+      }
+      if (!botId && commandInput && commandInput.lastCommand) {
+        const commandInput = JSON.parse(
+          fs.readFileSync(`${__dirname}/../cache/commandInput.json`)
+        );
+        console.log("cleaning :", commandInput);
+
         fs.writeFileSync(
           `${__dirname}/../cache/commandInput.json`,
           JSON.stringify({
@@ -82,22 +102,36 @@ module.exports = {
       }
 
       await new Promise((resolve) => {
-        fs.createReadStream(`${__dirname}/../${botToken}_session.secure`)
-          .pipe(
-            createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
-          )
-          .on("finish", () => {
-            // console.log("resolving...")
-            // console.log("resolved!")
-            // const zipfile = new AdmZip(`${__dirname}/temp.zip`);
+        try {
+          fs.createReadStream(`${__dirname}/../${botToken}_session.secure`)
+            .on("error", (error) => {
+              console.log("error creating... file must not exist");
+              console.log("deleting token entry in database...");
+              botsDb.then(({ coll, conn }) => coll.delete({ botId: botId }));
+              console.log(
+                "Exception Caught: removed token for deleted session"
+              );
+              return;
+            })
+            .pipe(
+              createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
+            )
+            .on("finish", () => {
+              // console.log("resolving...")
+              // console.log("resolved!")
+              // const zipfile = new AdmZip(`${__dirname}/temp.zip`);
 
-            // let delay = 0
-            // while (delay < 1000) {
-            //   delay++
-            // }
+              // let delay = 0
+              // while (delay < 1000) {
+              //   delay++
+              // }
 
-            resolve();
-          });
+              resolve();
+            });
+        } catch (error) {
+          // console.log(error.message)
+          // throw error
+        }
       })
         .then(async (res) => {
           // let timeoutCounter = 0;

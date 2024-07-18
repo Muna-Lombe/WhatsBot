@@ -23,7 +23,7 @@ httpServer.removeAllListeners("upgrade");
 const wss = new ws.Server({ noServer: true });
 wss.on("connection", (socket, req) => {
   socket.on("message", (message) => {
-    console.log("wss:", message.toString());
+    // console.log("wss:", message.toString());
 
     wsRouter(socket, message);
   });

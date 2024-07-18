@@ -35,85 +35,184 @@ const { timeStamp } = require("console");
 const { botsDb } = require("./services");
 const botmark = "​";
 
-class BotClientInstance {
-  constructor({ botId, ws, client, listeners = [] }) {
-    this.botId = botId;
-    this.ws = ws;
-    this.listeners = listeners;
-    this.client =
-      client ||
-      new Client({
-        puppeteer: {
-          headless: true,
-          args: ["--no-sandbox"],
-        },
-        authStrategy: new LocalAuth({ clientId: this.botId }),
-      });
+const buildClient = (_this, client) => {
+  _this.client =
+    client ||
+    new Client({
+      // webVersionCache:{
+      //   remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1013620109-alpha.html',
+      //   type: 'remote'
+      // },
+      puppeteer: {
+        headless: true,
+        args: ["--no-sandbox"],
+      },
+      authStrategy: new LocalAuth({ clientId: _this.botId }),
+    });
+  _this.client.commands = new Map();
+  _this.client.removeListener("qr", _this.client._qrListener || (() => {}));
+  _this.client.removeListener(
+    "authenticated",
+    _this.client._authenticatedListener || (() => {})
+  );
+  _this.client.removeListener(
+    "auth_failure",
+    _this.client._authFailureListener || (() => {})
+  );
+  _this.client.removeListener(
+    "ready",
+    _this.client._readyListener || (() => {})
+  );
 
-    this.client.commands = new Map();
-    this.client.removeListener("qr", this.client._qrListener || (() => {}));
-    this.client.removeListener(
-      "authenticated",
-      this.client._authenticatedListener || (() => {})
-    );
-    this.client.removeListener(
-      "auth_failure",
-      this.client._authFailureListener || (() => {})
-    );
-    this.client.removeListener(
-      "ready",
-      this.client._readyListener || (() => {})
-    );
+  const commandsList = fs.readdirSync("./commands", { withFileTypes: false });
+  // commandsList?.forEach((files) => {
+  // if (err) return console.error(e)
+  console.log("loading commands...");
+  commandsList.forEach((commandFile) => {
+    if (commandFile.endsWith(".js")) {
+      let commandName = commandFile.replace(".js", "");
+      const command = require(`./commands/${commandName}`);
+      // console.log("command", command)
+      _this.client.commands.set(commandName, command);
+    }
+    // })
+  });
 
-    const commandsList = fs.readdirSync("./commands", { withFileTypes: false });
+  console.log("commands loaded : ", _this.client.commands.size > 1);
+  _this.ensureCommandsLoaded = async () => {
+    if (_this.client.commands.size > 0) return;
+    // const _this = _this;
+    const commandsList = fs.readdirSync("./commands", {
+      withFileTypes: false,
+    });
     // commandsList?.forEach((files) => {
     // if (err) return console.error(e)
-    console.log("loading commands...");
+    console.log("reloading loading commands", commandsList);
     commandsList.forEach((commandFile) => {
       if (commandFile.endsWith(".js")) {
         let commandName = commandFile.replace(".js", "");
         const command = require(`./commands/${commandName}`);
         // console.log("command", command)
-        this.client.commands.set(commandName, command);
+        _this.client.commands.set(commandName, command);
       }
       // })
     });
+    console.log("commands loaded: ", _this.client.commands.size);
+  };
+  if (_this.listeners) {
+    console.log("adding listeners");
 
-    console.log("commands loaded : ", this.client.commands.size > 1);
-    this.ensureCommandsLoaded = async () => {
-      if (this.client.commands.size > 0) return;
-      const _this = this;
-      const commandsList = fs.readdirSync("./commands", {
-        withFileTypes: false,
-      });
-      // commandsList?.forEach((files) => {
-      // if (err) return console.error(e)
-      console.log("reloading loading commands", commandsList);
-      commandsList.forEach((commandFile) => {
-        if (commandFile.endsWith(".js")) {
-          let commandName = commandFile.replace(".js", "");
-          const command = require(`./commands/${commandName}`);
-          // console.log("command", command)
-          _this.client.commands.set(commandName, command);
-        }
-        // })
-      });
-      console.log("commands loaded: ", _this.client.commands.size);
-    };
-    if (this.listeners) {
-      console.log("adding listeners");
+    _this.addListeners(_this.listeners);
+  }
+  console.log("botclient initializing...");
 
-      this.addListeners(this.listeners);
-    }
-    console.log("botclient initializing...");
+  return _this;
+};
+class BotClientInstance {
+  constructor({ botId, ws, client, listeners = [] }) {
+    this.botId = botId;
+    this.ws = ws;
+    this.listeners = listeners;
+    this.client = buildClient(this, client).client;
+    //   client ||
+    //   new Client({
+    //     puppeteer: {
+    //       headless: true,
+    //       args: ["--no-sandbox"],
+    //     },
+    //     authStrategy: new LocalAuth({ clientId: this.botId }),
+    //   });
+
+    // this.client.commands = new Map();
+    // this.client.removeListener("qr", this.client._qrListener || (() => {}));
+    // this.client.removeListener(
+    //   "authenticated",
+    //   this.client._authenticatedListener || (() => {})
+    // );
+    // this.client.removeListener(
+    //   "auth_failure",
+    //   this.client._authFailureListener || (() => {})
+    // );
+    // this.client.removeListener(
+    //   "ready",
+    //   this.client._readyListener || (() => {})
+    // );
+
+    // const commandsList = fs.readdirSync("./commands", { withFileTypes: false });
+    // // commandsList?.forEach((files) => {
+    // // if (err) return console.error(e)
+    // console.log("loading commands...");
+    // commandsList.forEach((commandFile) => {
+    //   if (commandFile.endsWith(".js")) {
+    //     let commandName = commandFile.replace(".js", "");
+    //     const command = require(`./commands/${commandName}`);
+    //     // console.log("command", command)
+    //     this.client.commands.set(commandName, command);
+    //   }
+    //   // })
+    // });
+
+    // console.log("commands loaded : ", this.client.commands.size > 1);
+    // this.ensureCommandsLoaded = async () => {
+    //   if (this.client.commands.size > 0) return;
+    //   const _this = this;
+    //   const commandsList = fs.readdirSync("./commands", {
+    //     withFileTypes: false,
+    //   });
+    //   // commandsList?.forEach((files) => {
+    //   // if (err) return console.error(e)
+    //   console.log("reloading loading commands", commandsList);
+    //   commandsList.forEach((commandFile) => {
+    //     if (commandFile.endsWith(".js")) {
+    //       let commandName = commandFile.replace(".js", "");
+    //       const command = require(`./commands/${commandName}`);
+    //       // console.log("command", command)
+    //       _this.client.commands.set(commandName, command);
+    //     }
+    //     // })
+    //   });
+    //   console.log("commands loaded: ", _this.client.commands.size);
+    // };
+    // if (this.listeners) {
+    //   console.log("adding listeners");
+
+    //   this.addListeners(this.listeners);
+    // }
+    // console.log("botclient initializing...");
   }
   async start() {
     try {
       // await this.ensureCommandsLoaded();
+      const delayedThrow = (n) => {
+        const timeout = setTimeout(() => {
+          // throw new Error(`BotInitialization Timeout (${n}): botclient not initialized!`);
+        }, 10000);
+        return timeout;
+      };
+
+      let timedOutThrow = delayedThrow(1);
+
       this.client
         .initialize()
-        .then((res) => console.log("client initialize!"))
-        .catch((err) => console.log("client error", err));
+        .then((res) => {
+          console.log("client initialized!");
+          console.log("resetting timeout 1...");
+          clearTimeout(timedOutThrow);
+          timedOutThrow = delayedThrow(2);
+        })
+        .catch((err) => {
+          console.log("client error", err);
+          // this.client.logout();
+          setTimeout(() => {
+            // this.client.login(this.config.token);
+            console.log("attempting initialize again...");
+            // this.client.resetState()
+            this.client.destroy();
+            this.client = buildClient(this).client;
+            this.client.initialize();
+          }, 500);
+        });
+
       this.client.on("auth_failure", () => {
         console.error(
           "There is a problem in authentication, Kindly set the env var again and restart the app"
@@ -128,7 +227,11 @@ class BotClientInstance {
       });
 
       this.client.on("authenticated", async (session) => {
-        console.log("authenticated", session);
+        console.log("session authenticated:", session);
+        console.log("resetting timeout 2...");
+        clearTimeout(timedOutThrow);
+        timedOutThrow = delayedThrow(3);
+
         this.ws.send(
           JSON.stringify({
             event: "connect",
@@ -141,23 +244,26 @@ class BotClientInstance {
       });
 
       this.client.on("ready", async () => {
+        console.log("resetting timeout 3...");
+        clearTimeout(timedOutThrow);
+
         const { conn, coll } = await botsDb;
         console.log("Bot has been started");
         coll.update(
           { botId: this.botId },
           { status: "running", timeStamp: new Date() }
         );
-        const map = new Map();
+        const contactsMap = new Map();
         (await this.client.getContacts()).forEach((c) => {
-          map.set(c.pushname, c);
-          console.log("id._serialized", c.pushname, c.id._serialized);
+          contactsMap.set(c.pushname, c);
+          // console.log("id._serialized", c.pushname, c.id._serialized);
           // if(["8613758279354", "79656229755", "79687698040"].includes(c.id.user)){
-          //   map.set(c.pushname, c)
+          //   contactsMap.set(c.pushname, c)
           // }
         });
-        this.client.contacts = map;
+        this.client.contacts = contactsMap;
 
-        console.log("contacts", this.client.contacts);
+        console.log("contacts", this.client.contacts.size);
         await logger(
           this.client,
           "Bot has been started!\n\nGet started by sending `!help` to see what commands are available."
@@ -186,6 +292,7 @@ class BotClientInstance {
         JSON.stringify({
           event: "connect",
           status: "error",
+          message: err.message,
         })
       );
     }
@@ -226,7 +333,8 @@ class BotClientInstance {
   }
   async connection() {
     try {
-      const state = await this.client.getState();
+      const state = await this.client.sendMessage("you", "healthCheck...");
+      //"MIGHTBECONNECTED"//await this.client.getState();
       const info = this.client.info;
 
       return {
@@ -235,7 +343,13 @@ class BotClientInstance {
       };
     } catch (error) {
       console.log(error);
-      return { error: "No Connection" };
+      return {
+        error: error.message.includes(
+          "Cannot read properties of null (reading 'evaluate')"
+        )
+          ? "Bot not started..."
+          : "No Connection",
+      };
     }
   }
   async stop() {

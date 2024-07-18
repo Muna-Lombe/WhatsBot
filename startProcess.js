@@ -36,4 +36,16 @@ async function stopBot(botId, ws) {
   }
 }
 
+async function destroyBot(botId, ws) {
+  try {
+    const bot = await BotSessionManager.getClientFromBotId({ botId });
+    bot.ws = ws;
+    bot.client.stop();
+    bot.client.destroy();
+    return "ok";
+  } catch (error) {
+    console.error("something caught:", error?.message);
+  }
+}
+
 module.exports = { startBot, stopBot };

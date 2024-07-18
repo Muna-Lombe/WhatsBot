@@ -1,10 +1,10 @@
-const { request, response } = require("express");
+const { request, response, json } = require("express");
 const { readFileSync } = require("fs");
 
 const { BotClientInstance } = require("../botClientInstanceCreator");
 const { startBot, stopBot } = require("../startProcess");
 const { botsDb } = require("../services");
-const { sleep } = require("../helpers/genUtils");
+const { sleep, cleanUpBotCrumbs } = require("../helpers/genUtils");
 const { BotSessionManager } = require("../managers/botMangager");
 
 class BotController {
@@ -40,14 +40,19 @@ class BotController {
           const { error, state, info } = await bot?.connection(); // check connection
 
           if (!error) {
-            console.log("bot connection status:", state, info);
+            console.log("bot connection status:", info, state);
+            return;
           } else {
             console.log("bot connection status:", error);
 
             coll.update({ id: data[x].id }, { status: "stopped" });
+            // await bot.start()
+            console.log("Problem with healthCheck, retrying...");
+            socket.send(
+              JSON.stringify({ event: "healthCheck", botArray: data })
+            );
+            await this.healthCheck(socket, message);
           }
-
-          return;
         } else if (
           data[x]?.status === "stopped" &&
           botSess.lastActionTriggered === "disconnect"
@@ -76,6 +81,18 @@ class BotController {
         } else {
           // if something else
           console.log("no bot sessions exist!...");
+
+          // clear out old states
+          socket.send(
+            JSON.stringify({
+              event: "healthCheck",
+              type: "botSession",
+              state: "botRemoved",
+              message: {
+                botId: botSess.botId,
+              },
+            })
+          );
         }
       });
       socket.send(JSON.stringify({ event: "healthCheck", botArray: data }));
@@ -163,10 +180,44 @@ class BotController {
         });
       }, 2000);
     } catch (error) {
-      res.status(500).json({
-        code: 500,
-        error: error.message,
-      });
+      socket.send(
+        JSON.stringify({
+          event: "remove",
+          status: "fail",
+          message: error.message,
+        })
+      );
+    }
+  }
+  /**
+   * disconnect a bot session
+   * @param {*} socket - a websocket(ws) connection
+   * @param {*} message - a message event received from the ws
+   */
+  static async remove(socket, message) {
+    try {
+      const { botId } = message;
+      socket.send(JSON.stringify({ event: "remove", status: "pending" }));
+      setTimeout(() => {
+        Promise.all([
+          new Promise(async (resolve, reject) => {
+            await stopBot(botId, socket);
+            cleanUpBotCrumbs(botId);
+
+            resolve();
+          }),
+        ]).then((promises) => {
+          socket.send(JSON.stringify({ event: "remove", status: "complete" }));
+        });
+      }, 2000);
+    } catch (error) {
+      socket.send(
+        JSON.stringify({
+          event: "remove",
+          status: "fail",
+          message: error.message,
+        })
+      );
     }
   }
 }

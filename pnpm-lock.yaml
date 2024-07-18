@@ -84,8 +84,8 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
       whatsapp-web.js:
-        specifier: github:pedroslopez/whatsapp-web.js#webpack-exodus
-        version: https://codeload.github.com/pedroslopez/whatsapp-web.js/tar.gz/cd566f28b9957d58dbd470470f6e2fe018808db3(encoding@0.1.13)
+        specifier: ^1.24.0
+        version: 1.24.0(encoding@0.1.13)
       ws:
         specifier: ^8.17.1
         version: 8.17.1
@@ -2007,9 +2007,8 @@ packages:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
     engines: {node: '>=12'}
 
-  whatsapp-web.js@https://codeload.github.com/pedroslopez/whatsapp-web.js/tar.gz/cd566f28b9957d58dbd470470f6e2fe018808db3:
-    resolution: {tarball: https://codeload.github.com/pedroslopez/whatsapp-web.js/tar.gz/cd566f28b9957d58dbd470470f6e2fe018808db3}
-    version: 1.23.1-alpha.5
+  whatsapp-web.js@1.24.0:
+    resolution: {integrity: sha512-/SHwvZxUmGQJ/JU3CxGeWINCbOoKpFmr5/TFNrWnudWxJsBBofNoXBzgIEZIz4KZwO3EEdKnMtsABFp4jLjwUA==}
     engines: {node: '>=18.0.0'}
 
   whatwg-url@13.0.0:
@@ -4270,7 +4269,7 @@ snapshots:
 
   webidl-conversions@7.0.0: {}
 
-  whatsapp-web.js@https://codeload.github.com/pedroslopez/whatsapp-web.js/tar.gz/cd566f28b9957d58dbd470470f6e2fe018808db3(encoding@0.1.13):
+  whatsapp-web.js@1.24.0(encoding@0.1.13):
     dependencies:
       '@pedroslopez/moduleraid': 5.0.2
       fluent-ffmpeg: 2.1.2

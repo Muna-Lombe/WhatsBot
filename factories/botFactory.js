@@ -9,7 +9,10 @@ const { botMsg } = require("../helpers/messageUtils");
 const pmpermit = require("../helpers/pmpermit");
 const { callCommand } = require("../helpers/commandWrapper");
 const logger = require("../logger");
-
+const fs = require("fs");
+const path = require("path");
+const { clean } = require("../session/manage");
+const { botsDb } = require("../services");
 const botmark = "​";
 
 const messagelistener = {
@@ -194,21 +197,57 @@ const disconnectListener = {
   eventName: "disconnected",
   callback: (_this) => {
     return async (reason) => {
+      const { coll, conn } = await botsDb;
       console.log("Client was logged out", reason);
       console.log("retrying to login...");
       _this.ws.send(
         JSON.stringify({
           event: "connect",
           status: "error",
-          message: "Client was logged out.",
+          message: "Client was logged out, reconnecting...",
         })
       );
       try {
-        await _this.client.destroy();
-        _this.client.initialize();
+        let reconnectSuccess = false;
+        setInterval(async () => {
+          await _this.client.destroy();
+          _this.client.initialize();
+          reconnectSuccess = true;
+        }, 500);
+
+        if (!reconnectSuccess)
+          throw new Error("Client was logged out, could not reconnect");
       } catch (error) {
         console.log("still error", error);
-        logger(_this.client, "Client was logged out, could not reconnect");
+        // clean state for current id
+
+        await coll.delete({ botId: _this.botId });
+        if (
+          fs.existsSync(
+            path.join(__dirname, "../.wwebjs_auth/session-" + _this.botId)
+          )
+        ) {
+          fs.rmSync(
+            path.join(__dirname, "../.wwebjs_auth/session-" + _this.botId),
+            { recursive: true }
+          );
+        }
+        if (
+          fs.existsSync(
+            path.join(
+              __dirname,
+              "../" + _this.botId.split("_")[2] + "_session.secure"
+            )
+          )
+        ) {
+          fs.rmSync(
+            path.join(
+              __dirname,
+              "../" + _this.botId.split("_")[2] + "_session.secure"
+            )
+          );
+        }
+        // logger(_this.client, error);
       }
     };
   },
