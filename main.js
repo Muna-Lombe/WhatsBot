@@ -7,7 +7,7 @@ const ws = require("ws");
 
 const { router } = require("./routes");
 const fs = require("fs");
-const { wsRouter } = require("./routes/bot");
+const { wsRouter } = require("./routes/botRoute.js");
 
 // middlewares
 app.use(express.json()); // for application/json
@@ -21,19 +21,6 @@ httpServer.removeAllListeners("upgrade");
 
 // start a web socket server and add listeners
 const wss = new ws.Server({ noServer: true });
-wss.on("connection", (socket, req) => {
-  socket.on("message", (message) => {
-    // console.log("wss:", message.toString());
-
-    wsRouter(socket, message);
-  });
-  socket.on("pong", () => console.log("pong"));
-  socket.on("error", (error) => console.log("ws Socket error: ", error));
-});
-
-wss.on("error", (error) => console.log("wss error: ", error));
-
-wss.on("close", (error) => console.log("wss close: ", error));
 
 // handle upgrade requests
 httpServer.on("upgrade", (req, socket, head) => {
@@ -47,5 +34,19 @@ httpServer.on("upgrade", (req, socket, head) => {
     socket.destroy();
   }
 });
+
+wss.on("connection", (socket, req) => {
+  socket.on("message", (message) => {
+    // console.log("wss:", message.toString());
+
+    wsRouter(socket, message);
+  });
+  socket.on("pong", () => console.log("pong"));
+  socket.on("error", (error) => console.log("ws Socket error: ", error));
+});
+
+wss.on("error", (error) => console.log("wss error: ", error));
+
+wss.on("close", (error) => console.log("wss close: ", error));
 
 httpServer.listen(process.env.PORT);

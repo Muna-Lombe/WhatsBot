@@ -1,7 +1,7 @@
 const { Router } = require("express");
-const { publicRouter } = require("./public");
-const { botRouter } = require("./bot");
-const { secureLinkRouter } = require("./secureLink");
+const { publicRouter } = require("./publicRoute");
+const { botRouter } = require("./botRoute.js");
+const { secureLinkRouter } = require("./secureLinkRoute");
 
 const router = Router();
 

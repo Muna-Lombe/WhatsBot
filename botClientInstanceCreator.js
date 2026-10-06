@@ -33,6 +33,8 @@ const { botMsg } = require("./helpers/messageUtils");
 const { INPUTSTATETYPES } = require("./helpers/commandUtils");
 const { timeStamp } = require("console");
 const { botsDb } = require("./services");
+const path = require("path");
+const { cleanState } = require("./session/manage");
 const botmark = "​";
 
 const buildClient = (_this, client) => {
@@ -40,8 +42,10 @@ const buildClient = (_this, client) => {
     client ||
     new Client({
       // webVersionCache:{
-      //   remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1013620109-alpha.html',
-      //   type: 'remote'
+      //   // remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1015040529-alpha.html',
+      //   // type: 'remote',
+      //    path: path.join(__dirname,'./.wwebjs_cache/2.2411.2.html'),
+      //   type: 'local'
       // },
       puppeteer: {
         headless: true,
@@ -108,109 +112,115 @@ const buildClient = (_this, client) => {
 
   return _this;
 };
+
+/**
+ * The BotClientInstance class is responsible for creating new bot client instances through the whatsapp-web.js Client class.
+ * @property {botId, ws, client, listeners} - the properties to be passed to the constructor when creating an instance
+ * @param {String} botId - The Id to associate with the bot
+ * @param {WebSocket} ws - The socket connection to use to communicate with other services
+ * @param {Client} client - The WWebJs Client instance
+ * @param {Array} listeners - The array of event listeners to add to the instance
+ *
+ */
 class BotClientInstance {
   constructor({ botId, ws, client, listeners = [] }) {
     this.botId = botId;
     this.ws = ws;
     this.listeners = listeners;
     this.client = buildClient(this, client).client;
-    //   client ||
-    //   new Client({
-    //     puppeteer: {
-    //       headless: true,
-    //       args: ["--no-sandbox"],
-    //     },
-    //     authStrategy: new LocalAuth({ clientId: this.botId }),
-    //   });
-
-    // this.client.commands = new Map();
-    // this.client.removeListener("qr", this.client._qrListener || (() => {}));
-    // this.client.removeListener(
-    //   "authenticated",
-    //   this.client._authenticatedListener || (() => {})
-    // );
-    // this.client.removeListener(
-    //   "auth_failure",
-    //   this.client._authFailureListener || (() => {})
-    // );
-    // this.client.removeListener(
-    //   "ready",
-    //   this.client._readyListener || (() => {})
-    // );
-
-    // const commandsList = fs.readdirSync("./commands", { withFileTypes: false });
-    // // commandsList?.forEach((files) => {
-    // // if (err) return console.error(e)
-    // console.log("loading commands...");
-    // commandsList.forEach((commandFile) => {
-    //   if (commandFile.endsWith(".js")) {
-    //     let commandName = commandFile.replace(".js", "");
-    //     const command = require(`./commands/${commandName}`);
-    //     // console.log("command", command)
-    //     this.client.commands.set(commandName, command);
-    //   }
-    //   // })
-    // });
-
-    // console.log("commands loaded : ", this.client.commands.size > 1);
-    // this.ensureCommandsLoaded = async () => {
-    //   if (this.client.commands.size > 0) return;
-    //   const _this = this;
-    //   const commandsList = fs.readdirSync("./commands", {
-    //     withFileTypes: false,
-    //   });
-    //   // commandsList?.forEach((files) => {
-    //   // if (err) return console.error(e)
-    //   console.log("reloading loading commands", commandsList);
-    //   commandsList.forEach((commandFile) => {
-    //     if (commandFile.endsWith(".js")) {
-    //       let commandName = commandFile.replace(".js", "");
-    //       const command = require(`./commands/${commandName}`);
-    //       // console.log("command", command)
-    //       _this.client.commands.set(commandName, command);
-    //     }
-    //     // })
-    //   });
-    //   console.log("commands loaded: ", _this.client.commands.size);
-    // };
-    // if (this.listeners) {
-    //   console.log("adding listeners");
-
-    //   this.addListeners(this.listeners);
-    // }
-    // console.log("botclient initializing...");
   }
-  async start() {
+  async start({ event }) {
     try {
       // await this.ensureCommandsLoaded();
-      const delayedThrow = (n) => {
-        const timeout = setTimeout(() => {
-          // throw new Error(`BotInitialization Timeout (${n}): botclient not initialized!`);
-        }, 10000);
+      let result = null;
+      const delayedNotifyServerOnError = async () => {
+        const { coll } = await botsDb;
+        await coll.update(
+          { botId: this.botId },
+          { status: "stopped", timeStamp: new Date() }
+        );
+        await coll.delete({ botId: this.botId });
+        await cleanState(this.botId);
+        this.ws.send(
+          JSON.stringify({
+            event: event,
+            status: "fail",
+            state: "botRemoved",
+            type: "botSession",
+            message: {
+              botId: this.botId,
+              status: "removed",
+            },
+          })
+        );
+      };
+      const delayedThrow = (n, fn) => {
+        const timeout = setTimeout(async () => {
+          await fn();
+          throw new Error(
+            `BotInitialization Timeout (${n}): botclient not initialized!`
+          );
+        }, 30000);
         return timeout;
       };
 
-      let timedOutThrow = delayedThrow(1);
+      let timedOutThrow = delayedThrow(1, delayedNotifyServerOnError);
 
-      this.client
+      // this.ws.send(
+      //     JSON.stringify({
+      //       event: event,
+      //       status: "pending"
+      //     })
+      // );
+      // // clearTimeout(
+      //   setTimeout(() => {
+      //     this.ws.send(
+      //         JSON.stringify({
+      //           event: event,
+      //           status: "success",
+      //           data: [{
+      //             botId: this.botId,
+      //             status: "running",
+      //           }],
+      //         })
+      //     );
+      //     return {status:"success"};
+      //   }, 1000)
+      // // )
+
+      await this.client
         .initialize()
         .then((res) => {
-          console.log("client initialized!");
+          console.log("bot client initialized!");
           console.log("resetting timeout 1...");
+          this.ws.send(
+            JSON.stringify({
+              event: event,
+              status: "pending",
+              data: [
+                {
+                  botId: this.botId,
+                },
+              ],
+            })
+          );
           clearTimeout(timedOutThrow);
-          timedOutThrow = delayedThrow(2);
+          timedOutThrow = delayedThrow(2, delayedNotifyServerOnError, () => {});
         })
         .catch((err) => {
-          console.log("client error", err);
+          console.log("botClient error:", err);
           // this.client.logout();
-          setTimeout(() => {
+          setTimeout(async () => {
             // this.client.login(this.config.token);
             console.log("attempting initialize again...");
             // this.client.resetState()
-            this.client.destroy();
+            // if(this.client.pupBrowser){
+            await this.client.destroy();
+            // }
+            // this.client.destroy();
             this.client = buildClient(this).client;
-            this.client.initialize();
-          }, 500);
+            await this.client.initialize();
+          }, 5000);
         });
 
       this.client.on("auth_failure", () => {
@@ -219,7 +229,7 @@ class BotClientInstance {
         );
         this.ws.send(
           JSON.stringify({
-            event: "connect",
+            event: event || "connect",
             status: "error",
             message: "bot failed to authenticate",
           })
@@ -230,25 +240,16 @@ class BotClientInstance {
         console.log("session authenticated:", session);
         console.log("resetting timeout 2...");
         clearTimeout(timedOutThrow);
-        timedOutThrow = delayedThrow(3);
-
-        this.ws.send(
-          JSON.stringify({
-            event: "connect",
-            status: "pending",
-            data: {
-              botId: this.botId,
-            },
-          })
-        );
+        timedOutThrow = delayedThrow(3, delayedNotifyServerOnError);
       });
 
-      this.client.on("ready", async () => {
-        console.log("resetting timeout 3...");
+      return this.client.on("ready", async () => {
+        console.log("resetting timeout 2...");
         clearTimeout(timedOutThrow);
 
         const { conn, coll } = await botsDb;
         console.log("Bot has been started");
+        console.log("client for:", this.client.info.wid);
         coll.update(
           { botId: this.botId },
           { status: "running", timeStamp: new Date() }
@@ -268,18 +269,24 @@ class BotClientInstance {
           this.client,
           "Bot has been started!\n\nGet started by sending `!help` to see what commands are available."
         );
+        this.connectionStatus = (await this.connection())?.info
+          ? "connected"
+          : "disconnected";
         this.ws.send(
           JSON.stringify({
-            event: "connect",
-            status: "bot started",
-            data: {
-              botId: this.botId,
-            },
+            event: event,
+            status: "success",
+            data: [
+              {
+                botId: this.botId,
+                status: "running",
+              },
+            ],
           })
         );
       });
     } catch (err) {
-      console.log(err);
+      console.log("BotError:", err);
       // clearInterval(healthCheck);
       botsDb.then(({ conn, coll }) =>
         coll.update(
@@ -288,13 +295,17 @@ class BotClientInstance {
         )
       );
 
-      this.ws.send(
-        JSON.stringify({
-          event: "connect",
-          status: "error",
-          message: err.message,
-        })
-      );
+      // this.ws.send(
+      //   JSON.stringify({
+      //     event: "connect",
+      //     status: "error",
+      //     message: err.message,
+      //   })
+      // );
+      return {
+        status: "fail",
+        message: err.message,
+      };
     }
   }
   async checkHealth() {
@@ -323,12 +334,12 @@ class BotClientInstance {
         )
       );
 
-      this.ws.send(
-        JSON.stringify({
-          event: "connect",
-          status: "error",
-        })
-      );
+      // this.ws.send(
+      //   JSON.stringify({
+      //     event: "connect",
+      //     status: "error",
+      //   })
+      // );
     }
   }
   async connection() {
@@ -336,14 +347,18 @@ class BotClientInstance {
       const state = await this.client.sendMessage("you", "healthCheck...");
       //"MIGHTBECONNECTED"//await this.client.getState();
       const info = this.client.info;
+      const error = null;
 
       return {
-        state,
-        info,
+        state: "connected",
+        info: info || null,
+        error: false,
       };
     } catch (error) {
-      console.log(error);
+      console.log("get connection error:", error);
       return {
+        state: false,
+        info: false,
         error: error.message.includes(
           "Cannot read properties of null (reading 'evaluate')"
         )

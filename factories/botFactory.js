@@ -202,7 +202,6 @@ const disconnectListener = {
       console.log("retrying to login...");
       _this.ws.send(
         JSON.stringify({
-          event: "connect",
           status: "error",
           message: "Client was logged out, reconnecting...",
         })

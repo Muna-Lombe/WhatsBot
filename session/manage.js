@@ -23,7 +23,7 @@ let excludedDir = [
   "session-whatsbot/Default/Service Worker",
 ];
 
-module.exports = {
+const managementFunctions = {
   clean: function clean(botId) {
     try {
       // delete dir if exists
@@ -63,6 +63,7 @@ module.exports = {
           })
         );
       }
+      console.log("All client configs cleaned...!");
     } catch (_) {}
   },
   write: async function write(password, botToken) {
@@ -101,7 +102,7 @@ module.exports = {
         );
       }
 
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         try {
           fs.createReadStream(`${__dirname}/../${botToken}_session.secure`)
             .on("error", (error) => {
@@ -111,7 +112,9 @@ module.exports = {
               console.log(
                 "Exception Caught: removed token for deleted session"
               );
-              return;
+
+              throw new Error("session deleted");
+              // return;
             })
             .pipe(
               createDecryptStream(fs.createWriteStream(`${__dirname}/temp.zip`))
@@ -129,8 +132,9 @@ module.exports = {
               resolve();
             });
         } catch (error) {
-          // console.log(error.message)
+          // console.log(error.toString())
           // throw error
+          reject(error.toString());
         }
       })
         .then(async (res) => {
@@ -162,19 +166,23 @@ module.exports = {
             fs.unlinkSync(`${__dirname}/temp.zip`);
           } catch (_) {}
         });
-
+      return { data: { message: "ok" } };
       // console.log("Session files replicated");
     } catch (error) {
       console.log(
         "error caught:",
         `Session file not found, corrupted or password not matched. ${error.toString()}`
       );
+      if (error.toString() === "session deleted") {
+        return { error: { message: "session deleted" } };
+      }
       if (_retries < 10000) {
         console.log("retrying...");
         await replicate(botId, botToken, _retries + 1000);
       } else {
         console.log("retries limit reached!..");
-        throw new Error(`last caught error: ${error.toString()}`);
+        // throw new Error(`last caught error: ${error.toString()}`);
+        return { error: { message: "retry timedout!" } };
       }
     }
   },
@@ -195,6 +203,7 @@ module.exports = {
       } else {
         console.log("Using local session");
       }
+      return { data: { message: "ok" } };
     } catch (error) {
       throw new Error(
         `Session fetching failed. If you are using Local machine or VPS please remove 'SESSION_URL' from Enviroment Variable. ${error.toString()}`
@@ -213,11 +222,51 @@ module.exports = {
         );
       }
     } catch (error) {
-      console.log(error.message);
+      console.log(error.toString());
       return;
       // console.log(error)
     }
   },
+  cleanState: async function (botId) {
+    try {
+      console.log("resetting app state...");
+      //clean client configs
+      const _this = managementFunctions;
+      _this.clean(botId);
+
+      const { coll, conn } = await botsDb;
+
+      const { data: bots } = botId
+        ? await coll.read({ botId: botId })
+        : await coll.read();
+
+      //remove local session file and db entry
+      bots.map((bot) => {
+        // remove db entry
+        coll.delete({ botId: bot.botId });
+
+        // remove local session file
+        const filePath = path.join(
+          __dirname,
+          "../" + bot.botId.split("_")[2] + "_session.secure"
+        );
+        if (fs.existsSync(filePath)) {
+          fs.rmSync(filePath);
+        }
+      });
+
+      console.log("local session files removed...!");
+
+      console.log("app state reset...!");
+    } catch (error) {
+      console.log("resetting not completed...!");
+      console.log(error);
+    }
+  },
+};
+
+module.exports = {
+  ...managementFunctions,
 };
 
 function getCipherKey(password) {

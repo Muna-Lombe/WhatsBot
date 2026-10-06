@@ -73,7 +73,6 @@ async function generateNewToken({ userId, http, ws }) {
           });
         } else if (ws) {
           const message = JSON.stringify({
-            event: "register",
             status: "scanningQr",
             message: "qr-genereated",
             data: {
@@ -111,7 +110,6 @@ async function generateNewToken({ userId, http, ws }) {
       } else if (ws) {
         ws.send(
           JSON.stringify({
-            event: "connect",
             status: "error",
             data: {
               botId,
@@ -125,7 +123,6 @@ async function generateNewToken({ userId, http, ws }) {
       console.log("authenticated", session);
       if (http?.hasOwnProperty("req")) {
         await axios.post("http://localhost:5000/bot/message", {
-          event: "connect",
           status: "pending",
           data: {
             botId,
@@ -134,7 +131,6 @@ async function generateNewToken({ userId, http, ws }) {
       } else if (ws) {
         ws.send(
           JSON.stringify({
-            event: "connect",
             status: "pending",
             data: {
               botId,
@@ -146,18 +142,18 @@ async function generateNewToken({ userId, http, ws }) {
     client.on("ready", async () => {
       const { conn, coll } = await botsDb;
 
-      client.destroy();
+      await client.destroy();
+      console.log("registration client destroyed..!");
       console.log("Please wait...");
       // wait because filesystem is busy
       setTimeout(async () => {
         console.log("Session has been created");
 
         await write(botId, token);
-        await coll.insert({ botId, status: "running", timestamp: new Date() });
+        await coll.insert({ botId, status: "stopped", timestamp: new Date() });
 
         if (http?.hasOwnProperty("req")) {
           await axios.post("http://localhost:5000/bot/message", {
-            event: "connect",
             status: "complete",
             data: {
               botId,
@@ -167,7 +163,6 @@ async function generateNewToken({ userId, http, ws }) {
         } else if (ws) {
           ws.send(
             JSON.stringify({
-              event: "connect",
               status: "complete",
               data: {
                 botId,
@@ -186,11 +181,10 @@ async function generateNewToken({ userId, http, ws }) {
         //   path.join(__dirname, `/qrAuth/${userId}`)
         // );
 
-        startBot(botId, botId.split("_")[2], ws);
+        // await startBot({botId, botToken:botId.split("_")[2], ws});
         // app.response.download("./session.secure");
-      }, 3000);
+      }, 2000);
     });
-
     return { botId, client };
   } catch (error) {
     console.log("", error);

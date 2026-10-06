@@ -768,10 +768,11 @@ class SqliteConnection {
 
     const updateOne = [
       `UPDATE ${this.#collection} SET ${Object.keys(value)[0]} = ? WHERE ${
-        Object.keys(key)[0]
+        Object.keys(key || {})[0]
       } = ?`,
-      [Object.values(value)[0], Object.values(key)[0]],
+      [Object.values(value)[0], Object.values(key || {})[0]],
     ];
+
     const updateAll = [
       `UPDATE ${this.#collection} SET ${Object.keys(value)[0]} = ?`,
       [Object.values(value)[0]],

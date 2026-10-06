@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
+    "cleanState": "node session/cleanState.js",
     "gentoken": "node session/genToken.js",
     "gentokenwithdownload": "node session/genTokenWithDownload.js",
     "prepare": "husky install"
@@ -37,7 +38,7 @@
     "natural-cron": "^1.0.2",
     "node-cron": "^3.0.3",
     "ocr-space-api-wrapper": "^2.1.3",
-    "puppeteer": "^22.12.0",
+    "puppeteer": "^22.13.1",
     "qr-image": "^3.2.0",
     "qrcode-svg": "^1.1.0",
     "qrcode-terminal": "^0.12.0",
@@ -48,7 +49,7 @@
     "ud-api": "3.0.2-2",
     "vcf": "^2.1.2",
     "weather-js": "^2.0.0",
-    "whatsapp-web.js": "^1.24.0",
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#webpack-exodus",
     "ws": "^8.17.1"
   },
   "devDependencies": {
